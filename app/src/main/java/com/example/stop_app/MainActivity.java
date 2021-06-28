@@ -109,4 +109,10 @@ public class MainActivity extends AppCompatActivity {
 //        }
         startService(intent);
     }
+
+    public void stopMainService() {
+        Intent intent = new Intent(this, MainService.class);
+        unbindService(connection);
+        stopService(intent);
+    }
 }
