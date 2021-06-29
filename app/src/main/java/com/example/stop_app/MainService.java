@@ -28,6 +28,7 @@ import androidx.lifecycle.LifecycleService;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
+import org.tensorflow.lite.support.image.TensorImage;
 import org.tensorflow.lite.support.tensorbuffer.TensorBuffer;
 
 import java.util.concurrent.ExecutionException;
@@ -90,11 +91,11 @@ public class MainService extends LifecycleService {
                         return;
                     }
                     converter.yuvToRgb(img, bitmap);
-                    Matrix rotateMatrix = new Matrix();
-                    rotateMatrix.postRotate(90);
-                    Bitmap rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), rotateMatrix, false);
+                    Matrix matrix = new Matrix();
+                    matrix.postRotate(90);
+                    Bitmap rotated = Bitmap.createBitmap(bitmap, 0, 0, 257, 257, matrix, false);
                     TensorBuffer buffer = helper.predict(rotated);
-                    Bitmap predicted = helper.fetchArgmax(buffer.getFloatArray());
+                    Bitmap predicted = helper.fetchArgmax(buffer.getBuffer());
                     if(imageUpdateCallback != null) imageUpdateCallback.accept(rotated);
                     if(predictionUpdateCallback != null) predictionUpdateCallback.accept(predicted);
                     image.close();
@@ -103,6 +104,9 @@ public class MainService extends LifecycleService {
                 });
                 camera = cameraProvider.bindToLifecycle(this, cameraSelector, imageAnalysis);
             } catch (ExecutionException | InterruptedException e) {
+                e.printStackTrace();
+                stopSelf(1223);
+            } catch (Exception e) {
                 e.printStackTrace();
                 stopSelf(1223);
             }
@@ -134,6 +138,7 @@ public class MainService extends LifecycleService {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        unregisterReceiver(screenStateBroadcastReceiver);
         stopSelf(1223);
     }
 

@@ -22,7 +22,7 @@ import java.util.List;
 
 public class DeeplabPredictionHelper {
     private Deeplabv3Mnv2Test257 model;
-    private ImageProcessor imageProcessor = new ImageProcessor.Builder()
+    public ImageProcessor imageProcessor = new ImageProcessor.Builder()
             .add(new ResizeOp(257, 257, ResizeOp.ResizeMethod.BILINEAR))
             .add(new NormalizeOp(127.5f, 127.5f))
             .add(new QuantizeOp(128.0f, 1/128.0f)).build();
@@ -55,23 +55,23 @@ public class DeeplabPredictionHelper {
         return outputs.getOutputFeature0AsTensorBuffer();
     }
 
-    Bitmap fetchArgmax(float[] output) {
+    Bitmap fetchArgmax(ByteBuffer inputBuffer) {
         int outputBatchSize = 1;
         int outputHeight = 257;
         int outputWidth = 257;
         int outputChannels = 2;
         List<Integer> labelColors = new ArrayList<Integer>();
-        labelColors.add(Color.argb(255, 0, 0 ,0));
+        labelColors.add(Color.argb(255, 0, 255 ,0));
         labelColors.add(Color.argb(255, 255, 0 ,0));
 
         Bitmap outputArgmax = Bitmap.createBitmap(outputWidth, outputHeight, Bitmap.Config.ARGB_8888);
-
+        inputBuffer.rewind();
         for (int i = 0; i < outputHeight; i++) {
             for (int j = 0; j < outputWidth; j++) {
                 int maxIndex = 0;
                 float maxValue = 0.0f;
                 for (int c = 0; c < outputChannels; ++c) {
-                    float outputValue = output[j * i * c];
+                    float outputValue = inputBuffer.getFloat((i * outputWidth * 2 + j * 2 + c) * 4);
                     if (outputValue > maxValue) {
                         maxIndex = c;
                         maxValue = outputValue;

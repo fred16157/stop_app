@@ -57,12 +57,17 @@ public class MainActivity extends AppCompatActivity {
         public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
             mainService = ((MainService.LocalBinder) iBinder).getService();
             mainService.imageUpdateCallback = (image) -> {
-                System.out.println("Image update called");
                 runOnUiThread(() -> {
-                    System.out.println("Rendering preview");
                     ((ImageView)findViewById(R.id.imageView)).setImageBitmap(image);
+
                 });
             };
+            mainService.predictionUpdateCallback = (image) -> {
+                runOnUiThread(() -> {
+                    ((ImageView)findViewById(R.id.predictionView)).setImageBitmap(image);
+                });
+            };
+
             isBinded = true;
         }
 
