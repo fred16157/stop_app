@@ -15,6 +15,7 @@ import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.SystemClock;
+import android.util.Pair;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.experimental.UseExperimental;
@@ -23,6 +24,7 @@ import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageAnalysis;
 import androidx.camera.lifecycle.ProcessCameraProvider;
+import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LifecycleService;
 
@@ -42,11 +44,13 @@ public class MainService extends LifecycleService {
     private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
     public Consumer<Bitmap> imageUpdateCallback;
     public Consumer<Bitmap> predictionUpdateCallback;
+    public Consumer<Long> predictionTimeUpdateCallback;
     private ImageAnalysis imageAnalysis;
     private Camera camera;
     private YuvToRgbConverter converter;
     private DeeplabPredictionHelper helper;
     private boolean isBusy = false;
+    private long lastAlerted = 0;
     Executor executor = Executors.newSingleThreadExecutor();
     @Override
     public void onCreate() {
@@ -95,11 +99,27 @@ public class MainService extends LifecycleService {
                     matrix.postRotate(90);
                     Bitmap rotated = Bitmap.createBitmap(bitmap, 0, 0, 257, 257, matrix, false);
                     TensorBuffer buffer = helper.predict(rotated);
-                    Bitmap predicted = helper.fetchArgmax(buffer.getBuffer());
+                    Pair<Bitmap,Boolean> predicted = helper.fetchArgmax(buffer.getBuffer());
                     if(imageUpdateCallback != null) imageUpdateCallback.accept(rotated);
-                    if(predictionUpdateCallback != null) predictionUpdateCallback.accept(predicted);
+                    if(predictionUpdateCallback != null) predictionUpdateCallback.accept(predicted.first);
+
+                    if(predicted.second && SystemClock.uptimeMillis() - lastAlerted > 120000) {
+                        lastAlerted = SystemClock.uptimeMillis();
+                        Notification.Builder notification;
+                        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            notification = new Notification.Builder(MainService.this, WARNING_CHANNEL_ID);
+                        } else {
+                            notification = new Notification.Builder(MainService.this);
+                        }
+                        notification.setSmallIcon(R.mipmap.ic_launcher)
+                                .setContentTitle("경고")
+                                .setContentText("전방에 차도가 감지되었습니다. 주변 상황에 주의해주세요.")
+                                .setPriority(Notification.PRIORITY_MAX);
+                        NotificationManager notificationManager = getSystemService(NotificationManager.class);
+                        notificationManager.notify(2, notification.build());
+                    }
                     image.close();
-                    System.out.println(SystemClock.uptimeMillis() - startTime);
+                    if(predictionTimeUpdateCallback != null) predictionTimeUpdateCallback.accept(SystemClock.uptimeMillis() - startTime);
                     isBusy = false;
                 });
                 camera = cameraProvider.bindToLifecycle(this, cameraSelector, imageAnalysis);
@@ -119,10 +139,14 @@ public class MainService extends LifecycleService {
         PendingIntent pendingIntent = PendingIntent.getBroadcast(this, 0, notificationIntent, PendingIntent.FLAG_CANCEL_CURRENT);
         Notification.Builder notification;
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(RUNNING_CHANNEL_ID, "Running Alert", NotificationManager.IMPORTANCE_HIGH);
+            NotificationChannel runningChannel = new NotificationChannel(RUNNING_CHANNEL_ID, "Running Alert", NotificationManager.IMPORTANCE_HIGH);
             ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE))
-                    .createNotificationChannel(channel);
+                    .createNotificationChannel(runningChannel);
+            NotificationChannel warningChannel = new NotificationChannel(WARNING_CHANNEL_ID, "Warning Alert", NotificationManager.IMPORTANCE_HIGH);
+            ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE))
+                    .createNotificationChannel(warningChannel);
             notification = new Notification.Builder(this, RUNNING_CHANNEL_ID);
+
         }
         else {
             notification = new Notification.Builder(this);
@@ -131,7 +155,8 @@ public class MainService extends LifecycleService {
         notification.setSmallIcon(R.mipmap.ic_launcher)
                 .setContentIntent(pendingIntent)
                 .setContentTitle("멈춰!가 실행중입니다.")
-                .setContentText("중지하려면 터치하세요.");
+                .setContentText("중지하려면 터치하세요.")
+                .setPriority(Notification.PRIORITY_MAX);
         startForeground(1, notification.build());
     }
 

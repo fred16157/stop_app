@@ -3,6 +3,7 @@ package com.example.stop_app;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.util.Pair;
 
 import com.example.stop_app.ml.Deeplabv3Mnv2Test257;
 
@@ -55,17 +56,18 @@ public class DeeplabPredictionHelper {
         return outputs.getOutputFeature0AsTensorBuffer();
     }
 
-    Bitmap fetchArgmax(ByteBuffer inputBuffer) {
+    public Pair<Bitmap, Boolean> fetchArgmax(ByteBuffer inputBuffer) {
         int outputBatchSize = 1;
         int outputHeight = 257;
         int outputWidth = 257;
         int outputChannels = 2;
         List<Integer> labelColors = new ArrayList<Integer>();
-        labelColors.add(Color.argb(255, 0, 255 ,0));
+        labelColors.add(Color.argb(255, 0, 0 ,0));
         labelColors.add(Color.argb(255, 255, 0 ,0));
 
         Bitmap outputArgmax = Bitmap.createBitmap(outputWidth, outputHeight, Bitmap.Config.ARGB_8888);
         inputBuffer.rewind();
+        boolean isDetected = false;
         for (int i = 0; i < outputHeight; i++) {
             for (int j = 0; j < outputWidth; j++) {
                 int maxIndex = 0;
@@ -73,6 +75,7 @@ public class DeeplabPredictionHelper {
                 for (int c = 0; c < outputChannels; ++c) {
                     float outputValue = inputBuffer.getFloat((i * outputWidth * 2 + j * 2 + c) * 4);
                     if (outputValue > maxValue) {
+                        if(c == 1) isDetected = true;
                         maxIndex = c;
                         maxValue = outputValue;
                     }
@@ -81,7 +84,7 @@ public class DeeplabPredictionHelper {
                 outputArgmax.setPixel(j, i, labelColor);
             }
         }
-        return outputArgmax;
+        return new Pair<>(outputArgmax, isDetected);
     }
 
     public void close() {

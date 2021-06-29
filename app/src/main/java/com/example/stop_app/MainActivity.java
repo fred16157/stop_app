@@ -9,6 +9,7 @@ import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -65,6 +66,11 @@ public class MainActivity extends AppCompatActivity {
             mainService.predictionUpdateCallback = (image) -> {
                 runOnUiThread(() -> {
                     ((ImageView)findViewById(R.id.predictionView)).setImageBitmap(image);
+                });
+            };
+            mainService.predictionTimeUpdateCallback = (millis) -> {
+                runOnUiThread(() -> {
+                    ((TextView)findViewById(R.id.textView)).setText(millis+"ms");
                 });
             };
 
