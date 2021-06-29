@@ -1,15 +1,6 @@
 package com.example.stop_app;
 
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.camera.core.Preview;
-import androidx.camera.view.PreviewView;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-
 import android.Manifest;
-import android.app.ActivityManager;
-import android.app.Service;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -17,9 +8,13 @@ import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.view.SurfaceView;
 import android.widget.ImageView;
 import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 public class MainActivity extends AppCompatActivity {
     MainService mainService = null;
@@ -47,16 +42,13 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        switch(requestCode) {
-            case 1:
-                if(hasCameraPermission()) {
-                    startMainService();
-                }
-                else {
-                    Toast.makeText(this, "카메라 권한이 허용되지 않았습니다.", Toast.LENGTH_LONG).show();
-                    finish();
-                }
-                break;
+        if (requestCode == 1) {
+            if (hasCameraPermission()) {
+                startMainService();
+            } else {
+                Toast.makeText(this, "카메라 권한이 허용되지 않았습니다.", Toast.LENGTH_LONG).show();
+                finish();
+            }
         }
     }
 
