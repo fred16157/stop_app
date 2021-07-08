@@ -16,6 +16,7 @@ import android.os.Build;
 import android.os.IBinder;
 import android.os.SystemClock;
 import android.util.Pair;
+import android.util.Size;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.experimental.UseExperimental;
@@ -67,7 +68,7 @@ public class MainService extends LifecycleService {
     @UseExperimental(markerClass = androidx.camera.core.ExperimentalGetImage.class)
     public int onStartCommand(Intent intent, int flags, int startId) {
         cameraProviderFuture = ProcessCameraProvider.getInstance(this);
-        helper = new DeeplabPredictionHelper(this);
+        helper = new DeeplabPredictionHelper(this, DeeplabPredictionHelper.PredictionSize.SIZE_257);
         cameraProviderFuture.addListener(() -> {
             try {
                 ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
@@ -76,7 +77,7 @@ public class MainService extends LifecycleService {
                         .build();
 
                 imageAnalysis = new ImageAnalysis.Builder()
-                        .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+                        .setTargetResolution(new Size(257, 257))
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .build();
 
@@ -99,7 +100,7 @@ public class MainService extends LifecycleService {
                     matrix.postRotate(90);
                     Bitmap rotated = Bitmap.createBitmap(bitmap, 0, 0, 257, 257, matrix, false);
                     TensorBuffer buffer = helper.predict(rotated);
-                    Pair<Bitmap,Boolean> predicted = helper.fetchArgmax(buffer.getBuffer());
+                    Pair<Bitmap,Boolean> predicted = helper.fetchArgmax(buffer.getBuffer(), DeeplabPredictionHelper.PredictionSize.SIZE_257);
                     if(imageUpdateCallback != null) imageUpdateCallback.accept(rotated);
                     if(predictionUpdateCallback != null) predictionUpdateCallback.accept(predicted.first);
 
@@ -163,6 +164,7 @@ public class MainService extends LifecycleService {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        helper.close();
         unregisterReceiver(screenStateBroadcastReceiver);
         stopSelf(1223);
     }
