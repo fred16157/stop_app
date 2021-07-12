@@ -6,6 +6,7 @@ import android.graphics.Color;
 import android.util.Pair;
 
 import com.example.stop_app.ml.Deeplabv3Mnv2Test257;
+import com.example.stop_app.ml.Deeplabv3Mnv2Test513;
 
 import org.tensorflow.lite.DataType;
 import org.tensorflow.lite.gpu.CompatibilityList;
@@ -22,12 +23,24 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class DeeplabPredictionHelper {
-    private Deeplabv3Mnv2Test257 model;
-    public ImageProcessor imageProcessor = new ImageProcessor.Builder()
+    private Deeplabv3Mnv2Test257 model257;
+    private Deeplabv3Mnv2Test513 model513;
+    public ImageProcessor imageProcessor257 = new ImageProcessor.Builder()
             .add(new ResizeOp(257, 257, ResizeOp.ResizeMethod.BILINEAR))
             .add(new NormalizeOp(127.5f, 127.5f))
             .add(new QuantizeOp(128.0f, 1/128.0f)).build();
-    public DeeplabPredictionHelper(Context context) {
+    public ImageProcessor imageProcessor513 = new ImageProcessor.Builder()
+            .add(new ResizeOp(513, 513, ResizeOp.ResizeMethod.BILINEAR))
+            .add(new NormalizeOp(127.5f, 127.5f))
+            .add(new QuantizeOp(128.0f, 1/128.0f)).build();
+
+    enum PredictionSize {
+        SIZE_257, SIZE_513
+    }
+
+    private PredictionSize size;
+
+    public DeeplabPredictionHelper(Context context, PredictionSize size) {
         try {
             Model.Options options;
             CompatibilityList compatList = new CompatibilityList();
@@ -39,7 +52,17 @@ public class DeeplabPredictionHelper {
                 // if the GPU is not supported, run on 4 threads
                 options = new Model.Options.Builder().setNumThreads(4).build();
             }
-            model = Deeplabv3Mnv2Test257.newInstance(context, options);
+            this.size = size;
+
+            switch(size) {
+                case SIZE_257:
+                    model257 = Deeplabv3Mnv2Test257.newInstance(context, options);
+                    break;
+                case SIZE_513:
+                    model513 = Deeplabv3Mnv2Test513.newInstance(context, options);
+                    break;
+            }
+
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -48,20 +71,43 @@ public class DeeplabPredictionHelper {
     public TensorBuffer predict(Bitmap bitmap) {
         TensorImage tImage = new TensorImage(DataType.FLOAT32);
         tImage.load(bitmap);
-        tImage = imageProcessor.process(tImage);
-        TensorBuffer inputFeature0 = TensorBuffer.createFixedSize(new int[]{1, 257, 257, 3}, DataType.FLOAT32);
-        inputFeature0.loadBuffer(tImage.getBuffer());
-
-        Deeplabv3Mnv2Test257.Outputs outputs = model.process(inputFeature0);
-        return outputs.getOutputFeature0AsTensorBuffer();
+        switch(size) {
+            case SIZE_257:
+                tImage = imageProcessor257.process(tImage);
+                TensorBuffer inputFeature257 = TensorBuffer.createFixedSize(new int[]{1, 257, 257, 3}, DataType.FLOAT32);
+                inputFeature257.loadBuffer(tImage.getBuffer());
+                Deeplabv3Mnv2Test257.Outputs outputs257 = model257.process(inputFeature257);
+                return outputs257.getOutputFeature0AsTensorBuffer();
+            case SIZE_513:
+                tImage = imageProcessor513.process(tImage);
+                TensorBuffer inputFeature513 = TensorBuffer.createFixedSize(new int[]{1, 513, 513, 3}, DataType.FLOAT32);
+                inputFeature513.loadBuffer(tImage.getBuffer());
+                Deeplabv3Mnv2Test513.Outputs outputs513 = model513.process(inputFeature513);
+                return outputs513.getOutputFeature0AsTensorBuffer();
+        }
+        return null;
     }
 
-    public Pair<Bitmap, Boolean> fetchArgmax(ByteBuffer inputBuffer) {
+    public Pair<Bitmap, Boolean> fetchArgmax(ByteBuffer inputBuffer, PredictionSize size) {
+        int outputHeight;
+        int outputWidth;
+        switch(size) {
+            case SIZE_257:
+                outputHeight = 257;
+                outputWidth = 257;
+                break;
+            case SIZE_513:
+                outputHeight = 513;
+                outputWidth = 513;
+                break;
+            default:
+                outputHeight = 0;
+                outputWidth = 0;
+                break;
+        }
         int outputBatchSize = 1;
-        int outputHeight = 257;
-        int outputWidth = 257;
         int outputChannels = 2;
-        List<Integer> labelColors = new ArrayList<Integer>();
+        List<Integer> labelColors = new ArrayList<>();
         labelColors.add(Color.argb(255, 0, 0 ,0));
         labelColors.add(Color.argb(255, 255, 0 ,0));
 
@@ -88,6 +134,15 @@ public class DeeplabPredictionHelper {
     }
 
     public void close() {
-        model.close();
+        switch(size) {
+            case SIZE_257:
+                model257.close();
+                break;
+            case SIZE_513:
+                model513.close();
+                break;
+        }
+
+
     }
 }

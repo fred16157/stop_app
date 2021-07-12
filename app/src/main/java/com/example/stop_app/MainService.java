@@ -16,6 +16,7 @@ import android.os.Build;
 import android.os.IBinder;
 import android.os.SystemClock;
 import android.util.Pair;
+import android.util.Size;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.experimental.UseExperimental;
@@ -33,6 +34,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import org.tensorflow.lite.support.image.TensorImage;
 import org.tensorflow.lite.support.tensorbuffer.TensorBuffer;
 
+import java.util.ArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -48,7 +50,7 @@ public class MainService extends LifecycleService {
     private ImageAnalysis imageAnalysis;
     private Camera camera;
     private YuvToRgbConverter converter;
-    private DeeplabPredictionHelper helper;
+    private YoloPredictionHelper helper;
     private boolean isBusy = false;
     private long lastAlerted = 0;
     Executor executor = Executors.newSingleThreadExecutor();
@@ -67,7 +69,7 @@ public class MainService extends LifecycleService {
     @UseExperimental(markerClass = androidx.camera.core.ExperimentalGetImage.class)
     public int onStartCommand(Intent intent, int flags, int startId) {
         cameraProviderFuture = ProcessCameraProvider.getInstance(this);
-        helper = new DeeplabPredictionHelper(this);
+        helper = new YoloPredictionHelper(this);
         cameraProviderFuture.addListener(() -> {
             try {
                 ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
@@ -76,7 +78,7 @@ public class MainService extends LifecycleService {
                         .build();
 
                 imageAnalysis = new ImageAnalysis.Builder()
-                        .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+                        .setTargetResolution(new Size(416, 416))
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .build();
 
@@ -97,13 +99,12 @@ public class MainService extends LifecycleService {
                     converter.yuvToRgb(img, bitmap);
                     Matrix matrix = new Matrix();
                     matrix.postRotate(90);
-                    Bitmap rotated = Bitmap.createBitmap(bitmap, 0, 0, 257, 257, matrix, false);
-                    TensorBuffer buffer = helper.predict(rotated);
-                    Pair<Bitmap,Boolean> predicted = helper.fetchArgmax(buffer.getBuffer());
+                    Bitmap rotated = Bitmap.createBitmap(bitmap, 0, 0, 416, 416, matrix, false);
+                    ArrayList<YoloPredictionHelper.Recognition> predictions = helper.predict(rotated);
                     if(imageUpdateCallback != null) imageUpdateCallback.accept(rotated);
-                    if(predictionUpdateCallback != null) predictionUpdateCallback.accept(predicted.first);
+                    if(predictionUpdateCallback != null) predictionUpdateCallback.accept(helper.getResultOverlay(predictions));
 
-                    if(predicted.second && SystemClock.uptimeMillis() - lastAlerted > 120000) {
+                    if(!predictions.isEmpty() && SystemClock.uptimeMillis() - lastAlerted > 120000) {
                         lastAlerted = SystemClock.uptimeMillis();
                         Notification.Builder notification;
                         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -123,9 +124,6 @@ public class MainService extends LifecycleService {
                     isBusy = false;
                 });
                 camera = cameraProvider.bindToLifecycle(this, cameraSelector, imageAnalysis);
-            } catch (ExecutionException | InterruptedException e) {
-                e.printStackTrace();
-                stopSelf(1223);
             } catch (Exception e) {
                 e.printStackTrace();
                 stopSelf(1223);
@@ -146,7 +144,6 @@ public class MainService extends LifecycleService {
             ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE))
                     .createNotificationChannel(warningChannel);
             notification = new Notification.Builder(this, RUNNING_CHANNEL_ID);
-
         }
         else {
             notification = new Notification.Builder(this);
@@ -163,6 +160,7 @@ public class MainService extends LifecycleService {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        helper.close();
         unregisterReceiver(screenStateBroadcastReceiver);
         stopSelf(1223);
     }
