@@ -28,6 +28,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.PriorityQueue;
@@ -36,9 +37,7 @@ import java.util.Vector;
 public class YoloPredictionHelper {
     private Yolov4Tiny416 model;
     public ImageProcessor imageProcessor = new ImageProcessor.Builder()
-            .add(new ResizeOp(416, 416, ResizeOp.ResizeMethod.BILINEAR))
-            .add(new NormalizeOp(127.5f, 127.5f))
-            .add(new QuantizeOp(128.0f, 1/128.0f)).build();
+            .add(new ResizeOp(416, 416, ResizeOp.ResizeMethod.BILINEAR)).add(new NormalizeOp(0, 255)).build();
 
     private static final int[] OUTPUT_WIDTH_TINY = new int[]{2535, 2535};
     private Vector<String> labels = new Vector<>();
@@ -47,10 +46,10 @@ public class YoloPredictionHelper {
     protected float overlap(float x1, float w1, float x2, float w2) {
         float l1 = x1 - w1 / 2;
         float l2 = x2 - w2 / 2;
-        float left = l1 > l2 ? l1 : l2;
+        float left = Math.max(l1, l2);
         float r1 = x1 + w1 / 2;
         float r2 = x2 + w2 / 2;
-        float right = r1 < r2 ? r1 : r2;
+        float right = Math.min(r1, r2);
         return right - left;
     }
 
@@ -92,6 +91,7 @@ public class YoloPredictionHelper {
             while ((line = br.readLine()) != null) {
                 labels.add(line);
             }
+            model = Yolov4Tiny416.newInstance(context, options);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -108,14 +108,15 @@ public class YoloPredictionHelper {
 
         int gridWidth = OUTPUT_WIDTH_TINY[0];
         ByteBuffer bboxBuffer = outputs.getOutputFeature0AsTensorBuffer().getBuffer();
+        bboxBuffer.rewind();
         float[][][] bboxes = new float[1][OUTPUT_WIDTH_TINY[0]][4];
         for(int i = 0; i < OUTPUT_WIDTH_TINY[0]; i++) {
             for(int j = 0; j < 4; j++) {
                 bboxes[0][i][j] = bboxBuffer.getFloat();
             }
-
         }
         ByteBuffer scoreBuffer = outputs.getOutputFeature1AsTensorBuffer().getBuffer();
+        scoreBuffer.rewind();
         float[][][] out_score = new float[1][OUTPUT_WIDTH_TINY[1]][labels.size()];
         for(int i = 0; i < OUTPUT_WIDTH_TINY[1]; i++) {
             for(int j = 0; j < labels.size(); j++) {
@@ -150,16 +151,21 @@ public class YoloPredictionHelper {
             }
         }
 
-        return detections;
+        return nms(detections);
     }
 
     public Bitmap getResultOverlay(ArrayList<Recognition> detections) {
         Bitmap overlay = Bitmap.createBitmap(416, 416, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(overlay);
-        Paint paint = new Paint();
-        paint.setColor(Color.RED);
+        Paint bboxPaint = new Paint();
+        Paint textPaint = new Paint();
+        bboxPaint.setColor(Color.RED);
+        textPaint.setColor(Color.BLACK);
         for(Recognition detection : detections) {
-            canvas.drawRect(detection.location, paint);
+            if(detection.confidence < 0.5f) continue;
+            System.out.println(detection.toString());
+            canvas.drawRect(detection.location, bboxPaint);
+            canvas.drawText(detection.toString(), detection.location.left, detection.location.top, textPaint);
         }
         return overlay;
     }
