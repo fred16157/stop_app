@@ -68,7 +68,7 @@ public class MainService extends LifecycleService {
     @UseExperimental(markerClass = androidx.camera.core.ExperimentalGetImage.class)
     public int onStartCommand(Intent intent, int flags, int startId) {
         cameraProviderFuture = ProcessCameraProvider.getInstance(this);
-        helper = new DeeplabPredictionHelper(this, DeeplabPredictionHelper.PredictionSize.SIZE_513);
+        helper = new DeeplabPredictionHelper(this, DeeplabPredictionHelper.PredictionSize.SIZE_257);
         cameraProviderFuture.addListener(() -> {
             try {
                 ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
@@ -77,7 +77,7 @@ public class MainService extends LifecycleService {
                         .build();
 
                 imageAnalysis = new ImageAnalysis.Builder()
-                        .setTargetResolution(new Size(513, 513))
+                        .setTargetResolution(new Size(257, 257))
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .build();
 
@@ -98,9 +98,9 @@ public class MainService extends LifecycleService {
                     converter.yuvToRgb(img, bitmap);
                     Matrix matrix = new Matrix();
                     matrix.postRotate(90);
-                    Bitmap rotated = Bitmap.createBitmap(bitmap, 0, 0, 513, 513, matrix, false);
+                    Bitmap rotated = Bitmap.createBitmap(bitmap, 0, 0, 257, 257, matrix, false);
                     TensorBuffer buffer = helper.predict(rotated);
-                    Pair<Bitmap,Boolean> predicted = helper.fetchArgmax(buffer.getBuffer(), DeeplabPredictionHelper.PredictionSize.SIZE_513);
+                    Pair<Bitmap,Boolean> predicted = helper.fetchArgmax(buffer.getBuffer(), DeeplabPredictionHelper.PredictionSize.SIZE_257);
                     if(imageUpdateCallback != null) imageUpdateCallback.accept(rotated);
                     if(predictionUpdateCallback != null) predictionUpdateCallback.accept(predicted.first);
 
@@ -124,9 +124,6 @@ public class MainService extends LifecycleService {
                     isBusy = false;
                 });
                 camera = cameraProvider.bindToLifecycle(this, cameraSelector, imageAnalysis);
-            } catch (ExecutionException | InterruptedException e) {
-                e.printStackTrace();
-                stopSelf(1223);
             } catch (Exception e) {
                 e.printStackTrace();
                 stopSelf(1223);
