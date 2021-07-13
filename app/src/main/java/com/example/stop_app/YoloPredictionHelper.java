@@ -6,6 +6,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RectF;
+import android.graphics.Xfermode;
 
 import com.example.stop_app.ml.Yolov4TinyObj416;
 
@@ -102,26 +103,26 @@ public class YoloPredictionHelper {
         int gridWidth = OUTPUT_WIDTH_TINY[0];
         ByteBuffer bboxBuffer = outputs.getOutputFeature0AsTensorBuffer().getBuffer();
         bboxBuffer.rewind();
-//        float[][][] bboxes = new float[1][OUTPUT_WIDTH_TINY[0]][4];
-//        for(int i = 0; i < OUTPUT_WIDTH_TINY[0]; i++) {
-//            for(int j = 0; j < 4; j++) {
-//                bboxes[0][i][j] = bboxBuffer.getFloat();
-//            }
-//        }
+        float[][][] bboxes = new float[1][OUTPUT_WIDTH_TINY[0]][4];
+        for(int i = 0; i < OUTPUT_WIDTH_TINY[0]; i++) {
+            for(int j = 0; j < 4; j++) {
+                bboxes[0][i][j] = bboxBuffer.getFloat();
+            }
+        }
         ByteBuffer scoreBuffer = outputs.getOutputFeature1AsTensorBuffer().getBuffer();
         scoreBuffer.rewind();
-//        float[][][] out_score = new float[1][OUTPUT_WIDTH_TINY[1]][labels.size()];
-//        for(int i = 0; i < OUTPUT_WIDTH_TINY[1]; i++) {
-//            for(int j = 0; j < labels.size(); j++) {
-//                out_score[0][i][j] = scoreBuffer.getFloat();
-//            }
-//        }
+        float[][][] out_score = new float[1][OUTPUT_WIDTH_TINY[1]][labels.size()];
+        for(int i = 0; i < OUTPUT_WIDTH_TINY[1]; i++) {
+            for(int j = 0; j < labels.size(); j++) {
+                out_score[0][i][j] = scoreBuffer.getFloat();
+            }
+        }
         for (int i = 0; i < gridWidth;i++){
             float maxClass = 0;
             int detectedClass = -1;
             final float[] classes = new float[labels.size()];
             for (int c = 0;c< labels.size();c++){
-                classes [c] = scoreBuffer.getFloat();
+                classes [c] = out_score[0][i][c];
             }
             for (int c = 0;c<labels.size();++c){
                 if (classes[c] > maxClass){
@@ -131,10 +132,10 @@ public class YoloPredictionHelper {
             }
             final float score = maxClass;
             if (score > 0.5f){  // 정확도 50% 이상인 결과만 추가
-                final float xPos = bboxBuffer.getFloat();
-                final float yPos = bboxBuffer.getFloat();
-                final float w = bboxBuffer.getFloat();
-                final float h = bboxBuffer.getFloat();
+                final float xPos = bboxes[0][i][0];
+                final float yPos = bboxes[0][i][1];
+                final float w = bboxes[0][i][2];
+                final float h = bboxes[0][i][3];
                 final RectF rectF = new RectF(
                         Math.max(0, xPos - w / 2),
                         Math.max(0, yPos - h / 2),
@@ -153,12 +154,15 @@ public class YoloPredictionHelper {
         Paint bboxPaint = new Paint();
         Paint textPaint = new Paint();
         bboxPaint.setColor(Color.RED);
+        bboxPaint.setStyle(Paint.Style.STROKE);
+        bboxPaint.setStrokeWidth(4);
         textPaint.setColor(Color.BLACK);
+        textPaint.setTextSize(8);
         for(Recognition detection : detections) {
             if(detection.confidence < 0.5f) continue;
             System.out.println(detection.toString());
             canvas.drawRect(detection.location, bboxPaint);
-            canvas.drawText(detection.toString(), detection.location.left, detection.location.top, textPaint);
+            canvas.drawText(detection.toString(), detection.location.left, detection.location.top + 8, textPaint);
         }
         return overlay;
     }
