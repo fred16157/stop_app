@@ -8,6 +8,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Matrix;
 import android.media.Image;
@@ -28,6 +29,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LifecycleService;
+import androidx.preference.PreferenceManager;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -42,17 +44,22 @@ import java.util.function.Consumer;
 
 public class MainService extends LifecycleService {
     final String RUNNING_CHANNEL_ID = "ALERT_RUNNING";
-    final String WARNING_CHANNEL_ID = "ALERT_WARNING";
+    final String CROSSWALK_CHANNEL_ID = "ALERT_CROSSWALK";
+    final String TRAFFIC_LIGHT_CHANNEL_ID = "ALERT_TRAFFIC_LIGHT";
+    final String COLLISION_CHANNEL_ID = "ALERT_COLLISION";
     private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
     public Consumer<Bitmap> imageUpdateCallback;
     public Consumer<Bitmap> predictionUpdateCallback;
     public Consumer<Long> predictionTimeUpdateCallback;
+    public boolean doCrosswalkAlert;
+    public boolean doTrafficLightAlert;
+    public boolean doCollisionAlert;
     private ImageAnalysis imageAnalysis;
     private Camera camera;
     private YuvToRgbConverter converter;
     private YoloPredictionHelper helper;
     private boolean isBusy = false;
-    private long lastAlerted = 0;
+    private boolean[] prevPredictions = new boolean[5];
     Executor executor = Executors.newSingleThreadExecutor();
     @Override
     public void onCreate() {
@@ -63,6 +70,11 @@ public class MainService extends LifecycleService {
         screenStateFilter.addAction(Intent.ACTION_SCREEN_ON);
         screenStateFilter.addAction(Intent.ACTION_SCREEN_OFF);
         registerReceiver(screenStateBroadcastReceiver, screenStateFilter);
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+        doCrosswalkAlert = preferences.getBoolean("do_crosswalk_alert", false);
+        doTrafficLightAlert = preferences.getBoolean("do_traffic_light_alert", false);
+        doCollisionAlert = preferences.getBoolean("do_collision_alert", false);
+        preferences.registerOnSharedPreferenceChangeListener(preferenceChangeListener);
     }
 
     @Override
@@ -103,23 +115,54 @@ public class MainService extends LifecycleService {
                     ArrayList<YoloPredictionHelper.Recognition> predictions = helper.predict(rotated);
                     if(imageUpdateCallback != null) imageUpdateCallback.accept(rotated);
                     if(predictionUpdateCallback != null) predictionUpdateCallback.accept(helper.getResultOverlay(predictions));
-
-                    if(!predictions.isEmpty() && SystemClock.uptimeMillis() - lastAlerted > 120000) {
-                        lastAlerted = SystemClock.uptimeMillis();
-                        Notification.Builder notification;
+                    boolean[] curPredictions = new boolean[5];
+                    for(YoloPredictionHelper.Recognition prediction : predictions) {
+                        curPredictions[prediction.getDetectedClass()] = true;
+                        //방금 전 예측에 같은 경고를 보냈다면 멈춤
+                        if(prevPredictions[prediction.getDetectedClass()]) continue;
+                        Notification.Builder notification = null;
                         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            notification = new Notification.Builder(MainService.this, WARNING_CHANNEL_ID);
+                            switch (prediction.getDetectedClass()) {
+                                case 0:
+                                    if(!doCrosswalkAlert) continue;
+                                    notification = new Notification.Builder(MainService.this, CROSSWALK_CHANNEL_ID);
+                                    break;
+                                case 1: case 2:
+                                    if(!doTrafficLightAlert) continue;
+                                    notification = new Notification.Builder(MainService.this, TRAFFIC_LIGHT_CHANNEL_ID);
+                                    break;
+                                case 3: case 4:
+                                    if(!doCollisionAlert) continue;
+                                    notification = new Notification.Builder(MainService.this, COLLISION_CHANNEL_ID);
+                                    break;
+                            }
                         } else {
                             notification = new Notification.Builder(MainService.this);
                         }
-                        notification.setSmallIcon(R.mipmap.ic_launcher)
-                                .setContentTitle("경고")
-                                .setContentText("전방에 차도가 감지되었습니다. 주변 상황에 주의해주세요.")
-                                .setPriority(Notification.PRIORITY_MAX);
-                        NotificationManager notificationManager = getSystemService(NotificationManager.class);
-                        notificationManager.notify(2, notification.build());
+                        assert notification != null;
+                        notification.setSmallIcon(R.mipmap.ic_launcher).setPriority(Notification.PRIORITY_MAX);
+                        switch (prediction.getDetectedClass()) {
+                            case 0:
+                                notification.setContentTitle("횡단보도 경고")
+                                        .setContentText("전방에 횡단보도가 감지되었습니다.");
+                                break;
+                            case 1:
+                                notification.setContentTitle("신호등 감지됨")
+                                        .setContentText("횡단보도를 건널 수 있는 상태가 되면 알림을 보내드리겠습니다.");
+                                break;
+                            case 2:
+                                notification.setContentTitle("횡단보도를 건널 수 있음")
+                                        .setContentText("주변을 잘 살피고 건너주세요.");
+                                break;
+                            case 3: case 4:
+                                notification.setContentTitle("전방 충돌 위험 알림")
+                                        .setContentText("전방에 충돌할 위험이 있는 사물이 있습니다.");
+                                break;
+                        }
+                        getSystemService(NotificationManager.class).notify(2, notification.build());
                     }
                     image.close();
+                    prevPredictions = curPredictions;
                     if(predictionTimeUpdateCallback != null) predictionTimeUpdateCallback.accept(SystemClock.uptimeMillis() - startTime);
                     isBusy = false;
                 });
@@ -137,12 +180,15 @@ public class MainService extends LifecycleService {
         PendingIntent pendingIntent = PendingIntent.getBroadcast(this, 0, notificationIntent, PendingIntent.FLAG_CANCEL_CURRENT);
         Notification.Builder notification;
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationManager manager = ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE));
             NotificationChannel runningChannel = new NotificationChannel(RUNNING_CHANNEL_ID, "Running Alert", NotificationManager.IMPORTANCE_HIGH);
-            ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE))
-                    .createNotificationChannel(runningChannel);
-            NotificationChannel warningChannel = new NotificationChannel(WARNING_CHANNEL_ID, "Warning Alert", NotificationManager.IMPORTANCE_HIGH);
-            ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE))
-                    .createNotificationChannel(warningChannel);
+            manager.createNotificationChannel(runningChannel);
+            NotificationChannel crosswalkChannel = new NotificationChannel(CROSSWALK_CHANNEL_ID, "Crosswalk Alert", NotificationManager.IMPORTANCE_HIGH);
+            manager.createNotificationChannel(crosswalkChannel);
+            NotificationChannel trafficLightChannel = new NotificationChannel(TRAFFIC_LIGHT_CHANNEL_ID, "Traffic Light Alert", NotificationManager.IMPORTANCE_HIGH);
+            manager.createNotificationChannel(trafficLightChannel);
+            NotificationChannel collisionChannel = new NotificationChannel(COLLISION_CHANNEL_ID, "Collision Alert", NotificationManager.IMPORTANCE_HIGH);
+            manager.createNotificationChannel(collisionChannel);
             notification = new Notification.Builder(this, RUNNING_CHANNEL_ID);
         }
         else {
@@ -177,6 +223,20 @@ public class MainService extends LifecycleService {
         super.onBind(intent);
         return new LocalBinder();
     }
+
+    private final SharedPreferences.OnSharedPreferenceChangeListener preferenceChangeListener = (sharedPreferences, key) -> {
+        switch (key) {
+            case "do_crosswalk_alert":
+                doCrosswalkAlert = sharedPreferences.getBoolean(key, false);
+                break;
+            case "do_traffic_light_alert":
+                doTrafficLightAlert = sharedPreferences.getBoolean(key, false);
+                break;
+            case "do_collision_alert":
+                doCollisionAlert = sharedPreferences.getBoolean(key, false);
+                break;
+        }
+    };
 
     private final BroadcastReceiver screenStateBroadcastReceiver = new BroadcastReceiver() {
         @Override

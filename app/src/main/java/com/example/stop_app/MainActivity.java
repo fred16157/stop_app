@@ -8,11 +8,14 @@ import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -24,12 +27,29 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
+        setSupportActionBar(findViewById(R.id.toolbar));
         if(hasCameraPermission()) {
             startMainService();
         } else {
             requestPermission();
         }
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main_menu, menu);
+        return super.onCreateOptionsMenu(menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        switch(item.getItemId()) {
+            case R.id.settings_btn:
+                Intent intent = new Intent(this, SettingsActivity.class);
+                startActivity(intent);
+                break;
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     private boolean hasCameraPermission() {
@@ -50,6 +70,23 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(this, "카메라 권한이 허용되지 않았습니다.", Toast.LENGTH_LONG).show();
                 finish();
             }
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable @org.jetbrains.annotations.Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if(requestCode == 1) {
+            assert data != null;
+            boolean doCrosswalkAlert = data.getBooleanExtra("DO_CROSSWALK_ALERT", false);
+            boolean doTrafficLightAlert = data.getBooleanExtra("DO_TRAFFIC_LIGHT_ALERT", false);
+            boolean doCollisionAlert = data.getBooleanExtra("DO_COLLISION_ALERT", false);
+            if(mainService != null) {
+                mainService.doCrosswalkAlert = doCrosswalkAlert;
+                mainService.doTrafficLightAlert = doTrafficLightAlert;
+                mainService.doCollisionAlert = doCollisionAlert;
+            }
+
         }
     }
 

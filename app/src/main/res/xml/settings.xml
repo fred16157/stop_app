@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <SwitchPreference
+        android:defaultValue="false"
+        android:key="do_crosswalk_alert"
+        android:summary="횡단보도가 카메라에 탐지되면 알림을 보냅니다."
+        android:title="횡단보도 경고 알림" />
+    <SwitchPreference
+        android:defaultValue="false"
+        android:key="do_traffic_light_alert"
+        android:summary="카메라로 신호등을 바라보면 초록불이 들어왔을 때 알림을 보냅니다."
+        android:title="신호등 초록불 알림" />
+    <SwitchPreference
+        android:defaultValue="false"
+        android:key="do_collision_alert"
+        android:summary="오토바이와 자전거가 가까이 있다고 판단되면 알림을 보냅니다."
+        android:title="충돌 경고 알림" />
+</PreferenceScreen>
