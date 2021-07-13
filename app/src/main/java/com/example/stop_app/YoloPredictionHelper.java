@@ -1,22 +1,18 @@
 package com.example.stop_app;
 
 import android.content.Context;
-import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RectF;
-import android.util.Pair;
+import android.graphics.Xfermode;
 
-import com.example.stop_app.ml.Deeplabv3Mnv2Test257;
-import com.example.stop_app.ml.Deeplabv3Mnv2Test513;
-import com.example.stop_app.ml.Yolov4Tiny416;
+import com.example.stop_app.ml.Yolov4TinyObj416;
 
 import org.tensorflow.lite.DataType;
 import org.tensorflow.lite.gpu.CompatibilityList;
 import org.tensorflow.lite.support.common.ops.NormalizeOp;
-import org.tensorflow.lite.support.common.ops.QuantizeOp;
 import org.tensorflow.lite.support.image.ImageProcessor;
 import org.tensorflow.lite.support.image.TensorImage;
 import org.tensorflow.lite.support.image.ops.ResizeOp;
@@ -28,14 +24,12 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
-import java.util.List;
 import java.util.PriorityQueue;
 import java.util.Vector;
 
 public class YoloPredictionHelper {
-    private Yolov4Tiny416 model;
+    private Yolov4TinyObj416 model;
     public ImageProcessor imageProcessor = new ImageProcessor.Builder()
             .add(new ResizeOp(416, 416, ResizeOp.ResizeMethod.BILINEAR)).add(new NormalizeOp(0, 255)).build();
 
@@ -85,13 +79,13 @@ public class YoloPredictionHelper {
                 // if the GPU is not supported, run on 4 threads
                 options = new Model.Options.Builder().setNumThreads(4).build();
             }
-            InputStream labelInput = context.getAssets().open("coco.txt");
+            InputStream labelInput = context.getAssets().open("labels.txt");
             BufferedReader br = new BufferedReader(new InputStreamReader(labelInput));
             String line;
             while ((line = br.readLine()) != null) {
                 labels.add(line);
             }
-            model = Yolov4Tiny416.newInstance(context, options);
+            model = Yolov4TinyObj416.newInstance(context, options);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -104,7 +98,7 @@ public class YoloPredictionHelper {
         tImage = imageProcessor.process(tImage);
         TensorBuffer inputFeature = TensorBuffer.createFixedSize(new int[]{1, 416, 416, 3}, DataType.FLOAT32);
         inputFeature.loadBuffer(tImage.getBuffer());
-        Yolov4Tiny416.Outputs outputs = model.process(inputFeature);
+        Yolov4TinyObj416.Outputs outputs = model.process(inputFeature);
 
         int gridWidth = OUTPUT_WIDTH_TINY[0];
         ByteBuffer bboxBuffer = outputs.getOutputFeature0AsTensorBuffer().getBuffer();
@@ -160,12 +154,15 @@ public class YoloPredictionHelper {
         Paint bboxPaint = new Paint();
         Paint textPaint = new Paint();
         bboxPaint.setColor(Color.RED);
+        bboxPaint.setStyle(Paint.Style.STROKE);
+        bboxPaint.setStrokeWidth(4);
         textPaint.setColor(Color.BLACK);
+        textPaint.setTextSize(8);
         for(Recognition detection : detections) {
             if(detection.confidence < 0.5f) continue;
             System.out.println(detection.toString());
             canvas.drawRect(detection.location, bboxPaint);
-            canvas.drawText(detection.toString(), detection.location.left, detection.location.top, textPaint);
+            canvas.drawText(detection.toString(), detection.location.left, detection.location.top + 8, textPaint);
         }
         return overlay;
     }
