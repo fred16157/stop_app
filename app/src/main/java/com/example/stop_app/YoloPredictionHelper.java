@@ -71,14 +71,7 @@ public class YoloPredictionHelper {
         try {
             Model.Options options;
             CompatibilityList compatList = new CompatibilityList();
-
-            if(compatList.isDelegateSupportedOnThisDevice()){
-                // if the device has a supported GPU, add the GPU delegate
-                options = new Model.Options.Builder().setDevice(Model.Device.GPU).build();
-            } else {
-                // if the GPU is not supported, run on 4 threads
-                options = new Model.Options.Builder().setNumThreads(4).build();
-            }
+            options = new Model.Options.Builder().setNumThreads(4).build();
             InputStream labelInput = context.getAssets().open("labels.txt");
             BufferedReader br = new BufferedReader(new InputStreamReader(labelInput));
             String line;
@@ -103,18 +96,18 @@ public class YoloPredictionHelper {
         int gridWidth = OUTPUT_WIDTH_TINY[0];
         ByteBuffer bboxBuffer = outputs.getOutputFeature0AsTensorBuffer().getBuffer();
         bboxBuffer.rewind();
-        float[][][] bboxes = new float[1][OUTPUT_WIDTH_TINY[0]][4];
+        float[][] bboxes = new float[OUTPUT_WIDTH_TINY[0]][4];
         for(int i = 0; i < OUTPUT_WIDTH_TINY[0]; i++) {
             for(int j = 0; j < 4; j++) {
-                bboxes[0][i][j] = bboxBuffer.getFloat();
+                bboxes[i][j] = bboxBuffer.getFloat();
             }
         }
         ByteBuffer scoreBuffer = outputs.getOutputFeature1AsTensorBuffer().getBuffer();
         scoreBuffer.rewind();
-        float[][][] out_score = new float[1][OUTPUT_WIDTH_TINY[1]][labels.size()];
+        float[][] out_score = new float[OUTPUT_WIDTH_TINY[1]][labels.size()];
         for(int i = 0; i < OUTPUT_WIDTH_TINY[1]; i++) {
             for(int j = 0; j < labels.size(); j++) {
-                out_score[0][i][j] = scoreBuffer.getFloat();
+                out_score[i][j] = scoreBuffer.getFloat();
             }
         }
         for (int i = 0; i < gridWidth;i++){
@@ -122,7 +115,7 @@ public class YoloPredictionHelper {
             int detectedClass = -1;
             final float[] classes = new float[labels.size()];
             for (int c = 0;c< labels.size();c++){
-                classes [c] = out_score[0][i][c];
+                classes [c] = out_score[i][c];
             }
             for (int c = 0;c<labels.size();++c){
                 if (classes[c] > maxClass){
@@ -132,10 +125,10 @@ public class YoloPredictionHelper {
             }
             final float score = maxClass;
             if (score > 0.5f){  // 정확도 50% 이상인 결과만 추가
-                final float xPos = bboxes[0][i][0];
-                final float yPos = bboxes[0][i][1];
-                final float w = bboxes[0][i][2];
-                final float h = bboxes[0][i][3];
+                final float xPos = bboxes[i][0];
+                final float yPos = bboxes[i][1];
+                final float w = bboxes[i][2];
+                final float h = bboxes[i][3];
                 final RectF rectF = new RectF(
                         Math.max(0, xPos - w / 2),
                         Math.max(0, yPos - h / 2),
