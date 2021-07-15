@@ -1,3 +1,5 @@
 crosswalk
 traffic_light_red
 traffic_light_green
+motorcycle
+bicycle
