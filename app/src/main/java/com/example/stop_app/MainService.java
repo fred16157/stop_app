@@ -59,7 +59,7 @@ public class MainService extends LifecycleService {
     private YuvToRgbConverter converter;
     private YoloPredictionHelper helper;
     private boolean isBusy = false;
-    private boolean[] prevPredictions = new boolean[5];
+    private final short[] prevPredictions = new short[]{11, 11, 11, 11, 11};
     Executor executor = Executors.newSingleThreadExecutor();
     @Override
     public void onCreate() {
@@ -119,7 +119,7 @@ public class MainService extends LifecycleService {
                     for(YoloPredictionHelper.Recognition prediction : predictions) {
                         curPredictions[prediction.getDetectedClass()] = true;
                         //방금 전 예측에 같은 경고를 보냈다면 멈춤
-                        if(prevPredictions[prediction.getDetectedClass()]) continue;
+                        if(prevPredictions[prediction.getDetectedClass()] < 10) continue;
                         Notification.Builder notification = null;
                         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                             switch (prediction.getDetectedClass()) {
@@ -162,7 +162,10 @@ public class MainService extends LifecycleService {
                         getSystemService(NotificationManager.class).notify(2, notification.build());
                     }
                     image.close();
-                    prevPredictions = curPredictions;
+                    for(short i = 0; i < 5; i++){
+                        if(curPredictions[i]) prevPredictions[i] = 0;
+                        else if(prevPredictions[i] < 10) prevPredictions[i]++;
+                    }
                     if(predictionTimeUpdateCallback != null) predictionTimeUpdateCallback.accept(SystemClock.uptimeMillis() - startTime);
                     isBusy = false;
                 });
