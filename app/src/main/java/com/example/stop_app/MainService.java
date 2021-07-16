@@ -54,12 +54,13 @@ public class MainService extends LifecycleService {
     public boolean doCrosswalkAlert;
     public boolean doTrafficLightAlert;
     public boolean doCollisionAlert;
+    public int alertThreshold;
     private ImageAnalysis imageAnalysis;
     private Camera camera;
     private YuvToRgbConverter converter;
     private YoloPredictionHelper helper;
     private boolean isBusy = false;
-    private boolean[] prevPredictions = new boolean[5];
+    private final short[] prevPredictions = new short[]{11, 11, 11, 11, 11};
     Executor executor = Executors.newSingleThreadExecutor();
     @Override
     public void onCreate() {
@@ -74,7 +75,12 @@ public class MainService extends LifecycleService {
         doCrosswalkAlert = preferences.getBoolean("do_crosswalk_alert", false);
         doTrafficLightAlert = preferences.getBoolean("do_traffic_light_alert", false);
         doCollisionAlert = preferences.getBoolean("do_collision_alert", false);
+        alertThreshold = preferences.getInt("alert_threshold", 10);
         preferences.registerOnSharedPreferenceChangeListener(preferenceChangeListener);
+
+        for(short i = 0; i < 5; i++) {
+            prevPredictions[i] = (short)(alertThreshold + 1);
+        }
     }
 
     @Override
@@ -119,7 +125,7 @@ public class MainService extends LifecycleService {
                     for(YoloPredictionHelper.Recognition prediction : predictions) {
                         curPredictions[prediction.getDetectedClass()] = true;
                         //방금 전 예측에 같은 경고를 보냈다면 멈춤
-                        if(prevPredictions[prediction.getDetectedClass()]) continue;
+                        if(prevPredictions[prediction.getDetectedClass()] < alertThreshold) continue;
                         Notification.Builder notification = null;
                         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                             switch (prediction.getDetectedClass()) {
@@ -162,7 +168,10 @@ public class MainService extends LifecycleService {
                         getSystemService(NotificationManager.class).notify(2, notification.build());
                     }
                     image.close();
-                    prevPredictions = curPredictions;
+                    for(short i = 0; i < 5; i++){
+                        if(curPredictions[i]) prevPredictions[i] = 0;
+                        else if(prevPredictions[i] < alertThreshold) prevPredictions[i]++;
+                    }
                     if(predictionTimeUpdateCallback != null) predictionTimeUpdateCallback.accept(SystemClock.uptimeMillis() - startTime);
                     isBusy = false;
                 });
@@ -234,6 +243,9 @@ public class MainService extends LifecycleService {
                 break;
             case "do_collision_alert":
                 doCollisionAlert = sharedPreferences.getBoolean(key, false);
+                break;
+            case "alert_threshold":
+                alertThreshold = sharedPreferences.getInt(key, 10);
                 break;
         }
     };
