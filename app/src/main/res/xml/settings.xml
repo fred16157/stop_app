@@ -16,4 +16,12 @@
         android:key="do_collision_alert"
         android:summary="오토바이와 자전거가 가까이 있다고 판단되면 알림을 보냅니다."
         android:title="충돌 경고 알림" />
+    <com.example.stop_app.IntEditTextPreference
+        android:defaultValue="10"
+        android:key="alert_threshold"
+        android:selectAllOnFocus="true"
+        android:singleLine="true"
+        android:inputType="numberSigned"
+        android:summary="위의 알림들의 조건이 채워졌을 때 이 설정값 만큼의 프레임 수 안에 같은 알림을 보낸 적이 있다면 울리지 않습니다."
+        android:title="다시 알림 프레임 수" />
 </PreferenceScreen>
