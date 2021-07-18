@@ -140,6 +140,12 @@ public class MainActivity extends AppCompatActivity {
         if(isBinded) unbindService(connection); isBinded = false;
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if(!isBinded) bindService(new Intent(this, MainService.class), connection, Context.BIND_AUTO_CREATE);
+    }
+
     public void startMainService() {
         Intent intent = new Intent(this, MainService.class);
         bindService(intent, connection, Context.BIND_AUTO_CREATE);
