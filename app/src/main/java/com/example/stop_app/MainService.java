@@ -19,6 +19,7 @@ import android.os.SystemClock;
 import android.util.Size;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.annotation.experimental.UseExperimental;
 import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
@@ -28,9 +29,16 @@ import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LifecycleService;
 import androidx.preference.PreferenceManager;
 
+import com.google.android.gms.tasks.Tasks;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.mlkit.vision.common.InputImage;
+import com.google.mlkit.vision.text.Text;
+import com.google.mlkit.vision.text.TextRecognition;
+import com.google.mlkit.vision.text.TextRecognizer;
+import com.google.mlkit.vision.text.TextRecognizerOptions;
 
 import java.util.ArrayList;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
@@ -40,6 +48,7 @@ public class MainService extends LifecycleService {
     final String CROSSWALK_CHANNEL_ID = "ALERT_CROSSWALK";
     final String TRAFFIC_LIGHT_CHANNEL_ID = "ALERT_TRAFFIC_LIGHT";
     final String COLLISION_CHANNEL_ID = "ALERT_COLLISION";
+    final String BUS_CHANNEL_ID = "ALERT_BUS";
     private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
     public Consumer<Bitmap> imageUpdateCallback;
     public Consumer<Bitmap> predictionUpdateCallback;
@@ -47,13 +56,16 @@ public class MainService extends LifecycleService {
     public boolean doCrosswalkAlert;
     public boolean doTrafficLightAlert;
     public boolean doCollisionAlert;
+    public boolean doBusAlert;
+    public String targetBus;
     public int alertThreshold;
     private ImageAnalysis imageAnalysis;
     private Camera camera;
     private YuvToRgbConverter converter;
     private YoloPredictionHelper helper;
     private boolean isBusy = false;
-    private final short[] prevPredictions = new short[]{11, 11, 11, 11, 11};
+    private boolean isOCRBusy = false;
+    private final short[] prevPredictions = new short[]{11, 11, 11, 11, 11, 11};
     Executor executor = Executors.newSingleThreadExecutor();
     @Override
     public void onCreate() {
@@ -68,10 +80,12 @@ public class MainService extends LifecycleService {
         doCrosswalkAlert = preferences.getBoolean("do_crosswalk_alert", false);
         doTrafficLightAlert = preferences.getBoolean("do_traffic_light_alert", false);
         doCollisionAlert = preferences.getBoolean("do_collision_alert", false);
+        doBusAlert = preferences.getBoolean("do_bus_alert", false);
+        targetBus = preferences.getString("target_bus", "");
         alertThreshold = preferences.getInt("alert_threshold", 10);
         preferences.registerOnSharedPreferenceChangeListener(preferenceChangeListener);
 
-        for(short i = 0; i < 5; i++) {
+        for(short i = 0; i < 6; i++) {
             prevPredictions[i] = (short)(alertThreshold + 1);
         }
     }
@@ -114,8 +128,29 @@ public class MainService extends LifecycleService {
                     ArrayList<YoloPredictionHelper.Recognition> predictions = helper.predict(rotated);
                     if(imageUpdateCallback != null) imageUpdateCallback.accept(rotated);
                     if(predictionUpdateCallback != null) predictionUpdateCallback.accept(helper.getResultOverlay(predictions));
-                    boolean[] curPredictions = new boolean[5];
+                    boolean[] curPredictions = new boolean[6];
                     for(YoloPredictionHelper.Recognition prediction : predictions) {
+//                        if(prediction.getDetectedClass() == 5) {
+//                            if(isOCRBusy) continue;
+//                            isOCRBusy = true;
+//                            TextRecognizer recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
+//                            recognizer.process(InputImage.fromBitmap(rotated, 90)).addOnSuccessListener((text) -> {
+//                                Notification.Builder notification = null;
+//                                if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+//                                    notification = new Notification.Builder(MainService.this, BUS_CHANNEL_ID);
+//                                }
+//                                else {
+//                                    notification = new Notification.Builder(MainService.this);
+//                                }
+//                                notification.setSmallIcon(R.mipmap.ic_launcher)
+//                                        .setPriority(Notification.PRIORITY_MAX)
+//                                        .setContentTitle("버스 번호 알림")
+//                                        .setContentText(text.getText());
+//                                getSystemService(NotificationManager.class).notify(3, notification.build());
+//                                isOCRBusy = false;
+//                            });
+//                            continue;
+//                        }
                         curPredictions[prediction.getDetectedClass()] = true;
                         //방금 전 예측에 같은 경고를 보냈다면 멈춤
                         if(prevPredictions[prediction.getDetectedClass()] < alertThreshold) continue;
@@ -133,6 +168,10 @@ public class MainService extends LifecycleService {
                                 case 3: case 4:
                                     if(!doCollisionAlert) continue;
                                     notification = new Notification.Builder(MainService.this, COLLISION_CHANNEL_ID);
+                                    break;
+                                case 5:
+                                    if(!doBusAlert) continue;
+                                    notification = new Notification.Builder(MainService.this, BUS_CHANNEL_ID);
                                     break;
                             }
                         } else {
@@ -157,12 +196,28 @@ public class MainService extends LifecycleService {
                                 notification.setContentTitle("전방 충돌 위험 알림")
                                         .setContentText("전방에 충돌할 위험이 있는 사물이 있습니다.");
                                 break;
+                            case 5:
+                                TextRecognizer recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
+                                Text visionText;
+                                try {
+                                    visionText = Tasks.await(recognizer.process(InputImage.fromBitmap(rotated, 90)));
+                                    recognizer.close();
+                                } catch (ExecutionException | InterruptedException e) {
+                                    e.printStackTrace();
+                                    continue;
+                                }
+                                System.out.println(visionText.getText());
+                                if(!visionText.getText().contains(targetBus)) continue;
+                                prevPredictions[5] = 0;
+                                notification.setContentTitle("버스 탐지됨")
+                                        .setContentText("지정한 버스 " + targetBus + " 가 탐지되었습니다.");
+                                break;
                         }
                         getSystemService(NotificationManager.class).notify(2, notification.build());
                     }
                     image.close();
-                    for(short i = 0; i < 5; i++){
-                        if(curPredictions[i]) prevPredictions[i] = 0;
+                    for(short i = 0; i < 6; i++){
+                        if(curPredictions[i] && i != 5) prevPredictions[i] = 0;
                         else if(prevPredictions[i] < alertThreshold) prevPredictions[i]++;
                     }
                     if(predictionTimeUpdateCallback != null) predictionTimeUpdateCallback.accept(SystemClock.uptimeMillis() - startTime);
@@ -191,6 +246,8 @@ public class MainService extends LifecycleService {
             manager.createNotificationChannel(trafficLightChannel);
             NotificationChannel collisionChannel = new NotificationChannel(COLLISION_CHANNEL_ID, "Collision Alert", NotificationManager.IMPORTANCE_HIGH);
             manager.createNotificationChannel(collisionChannel);
+            NotificationChannel busChannel = new NotificationChannel(BUS_CHANNEL_ID, "Collision Alert", NotificationManager.IMPORTANCE_HIGH);
+            manager.createNotificationChannel(busChannel);
             notification = new Notification.Builder(this, RUNNING_CHANNEL_ID);
         }
         else {
@@ -236,6 +293,12 @@ public class MainService extends LifecycleService {
                 break;
             case "do_collision_alert":
                 doCollisionAlert = sharedPreferences.getBoolean(key, false);
+                break;
+            case "do_bus_alert":
+                doBusAlert = sharedPreferences.getBoolean(key, false);
+                break;
+            case "target_bus":
+                targetBus = sharedPreferences.getString(key, "");
                 break;
             case "alert_threshold":
                 alertThreshold = sharedPreferences.getInt(key, 10);
