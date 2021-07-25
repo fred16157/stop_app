@@ -53,7 +53,7 @@ public class MainService extends LifecycleService {
     private YuvToRgbConverter converter;
     private YoloPredictionHelper helper;
     private boolean isBusy = false;
-    private final short[] prevPredictions = new short[]{11, 11, 11, 11, 11};
+    private final short[] prevPredictions = new short[]{11, 11, 11, 11, 11, 11};
     Executor executor = Executors.newSingleThreadExecutor();
     @Override
     public void onCreate() {
@@ -71,7 +71,7 @@ public class MainService extends LifecycleService {
         alertThreshold = preferences.getInt("alert_threshold", 10);
         preferences.registerOnSharedPreferenceChangeListener(preferenceChangeListener);
 
-        for(short i = 0; i < 5; i++) {
+        for(short i = 0; i < 6; i++) {
             prevPredictions[i] = (short)(alertThreshold + 1);
         }
     }
@@ -114,7 +114,7 @@ public class MainService extends LifecycleService {
                     ArrayList<YoloPredictionHelper.Recognition> predictions = helper.predict(rotated);
                     if(imageUpdateCallback != null) imageUpdateCallback.accept(rotated);
                     if(predictionUpdateCallback != null) predictionUpdateCallback.accept(helper.getResultOverlay(predictions));
-                    boolean[] curPredictions = new boolean[5];
+                    boolean[] curPredictions = new boolean[6];
                     for(YoloPredictionHelper.Recognition prediction : predictions) {
                         curPredictions[prediction.getDetectedClass()] = true;
                         //방금 전 예측에 같은 경고를 보냈다면 멈춤
@@ -130,7 +130,7 @@ public class MainService extends LifecycleService {
                                     if(!doTrafficLightAlert) continue;
                                     notification = new Notification.Builder(MainService.this, TRAFFIC_LIGHT_CHANNEL_ID);
                                     break;
-                                case 3: case 4:
+                                case 3: case 4: case 5:
                                     if(!doCollisionAlert) continue;
                                     notification = new Notification.Builder(MainService.this, COLLISION_CHANNEL_ID);
                                     break;
@@ -161,7 +161,7 @@ public class MainService extends LifecycleService {
                         getSystemService(NotificationManager.class).notify(2, notification.build());
                     }
                     image.close();
-                    for(short i = 0; i < 5; i++){
+                    for(short i = 0; i < 6; i++){
                         if(curPredictions[i]) prevPredictions[i] = 0;
                         else if(prevPredictions[i] < alertThreshold) prevPredictions[i]++;
                     }
