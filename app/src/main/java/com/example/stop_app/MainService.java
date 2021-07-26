@@ -16,28 +16,21 @@ import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.SystemClock;
-import android.util.Pair;
 import android.util.Size;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.experimental.UseExperimental;
-import androidx.camera.core.AspectRatio;
 import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageAnalysis;
 import androidx.camera.lifecycle.ProcessCameraProvider;
-import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LifecycleService;
 import androidx.preference.PreferenceManager;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
-import org.tensorflow.lite.support.image.TensorImage;
-import org.tensorflow.lite.support.tensorbuffer.TensorBuffer;
-
 import java.util.ArrayList;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
@@ -60,7 +53,7 @@ public class MainService extends LifecycleService {
     private YuvToRgbConverter converter;
     private YoloPredictionHelper helper;
     private boolean isBusy = false;
-    private final short[] prevPredictions = new short[]{11, 11, 11, 11, 11};
+    private final short[] prevPredictions = new short[]{11, 11, 11, 11, 11, 11};
     Executor executor = Executors.newSingleThreadExecutor();
     @Override
     public void onCreate() {
@@ -78,7 +71,7 @@ public class MainService extends LifecycleService {
         alertThreshold = preferences.getInt("alert_threshold", 10);
         preferences.registerOnSharedPreferenceChangeListener(preferenceChangeListener);
 
-        for(short i = 0; i < 5; i++) {
+        for(short i = 0; i < 6; i++) {
             prevPredictions[i] = (short)(alertThreshold + 1);
         }
     }
@@ -96,7 +89,7 @@ public class MainService extends LifecycleService {
                         .build();
 
                 imageAnalysis = new ImageAnalysis.Builder()
-                        .setTargetResolution(new Size(416, 416))
+                        .setTargetResolution(new Size(640, 480))
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .build();
 
@@ -121,7 +114,7 @@ public class MainService extends LifecycleService {
                     ArrayList<YoloPredictionHelper.Recognition> predictions = helper.predict(rotated);
                     if(imageUpdateCallback != null) imageUpdateCallback.accept(rotated);
                     if(predictionUpdateCallback != null) predictionUpdateCallback.accept(helper.getResultOverlay(predictions));
-                    boolean[] curPredictions = new boolean[5];
+                    boolean[] curPredictions = new boolean[6];
                     for(YoloPredictionHelper.Recognition prediction : predictions) {
                         curPredictions[prediction.getDetectedClass()] = true;
                         //방금 전 예측에 같은 경고를 보냈다면 멈춤
@@ -137,7 +130,7 @@ public class MainService extends LifecycleService {
                                     if(!doTrafficLightAlert) continue;
                                     notification = new Notification.Builder(MainService.this, TRAFFIC_LIGHT_CHANNEL_ID);
                                     break;
-                                case 3: case 4:
+                                case 3: case 4: case 5:
                                     if(!doCollisionAlert) continue;
                                     notification = new Notification.Builder(MainService.this, COLLISION_CHANNEL_ID);
                                     break;
@@ -168,7 +161,7 @@ public class MainService extends LifecycleService {
                         getSystemService(NotificationManager.class).notify(2, notification.build());
                     }
                     image.close();
-                    for(short i = 0; i < 5; i++){
+                    for(short i = 0; i < 6; i++){
                         if(curPredictions[i]) prevPredictions[i] = 0;
                         else if(prevPredictions[i] < alertThreshold) prevPredictions[i]++;
                     }

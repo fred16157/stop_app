@@ -6,9 +6,8 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RectF;
-import android.graphics.Xfermode;
 
-import com.example.stop_app.ml.Yolov4TinyObj416;
+import com.example.stop_app.ml.Yolov4Tiny416;
 
 import org.tensorflow.lite.DataType;
 import org.tensorflow.lite.gpu.CompatibilityList;
@@ -29,7 +28,7 @@ import java.util.PriorityQueue;
 import java.util.Vector;
 
 public class YoloPredictionHelper {
-    private Yolov4TinyObj416 model;
+    private Yolov4Tiny416 model;
     public ImageProcessor imageProcessor = new ImageProcessor.Builder()
             .add(new ResizeOp(416, 416, ResizeOp.ResizeMethod.BILINEAR)).add(new NormalizeOp(0, 255)).build();
 
@@ -78,7 +77,7 @@ public class YoloPredictionHelper {
             while ((line = br.readLine()) != null) {
                 labels.add(line);
             }
-            model = Yolov4TinyObj416.newInstance(context, options);
+            model = Yolov4Tiny416.newInstance(context, options);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -91,7 +90,7 @@ public class YoloPredictionHelper {
         tImage = imageProcessor.process(tImage);
         TensorBuffer inputFeature = TensorBuffer.createFixedSize(new int[]{1, 416, 416, 3}, DataType.FLOAT32);
         inputFeature.loadBuffer(tImage.getBuffer());
-        Yolov4TinyObj416.Outputs outputs = model.process(inputFeature);
+        Yolov4Tiny416.Outputs outputs = model.process(inputFeature);
 
         int gridWidth = OUTPUT_WIDTH_TINY[0];
         ByteBuffer bboxBuffer = outputs.getOutputFeature0AsTensorBuffer().getBuffer();
