@@ -93,7 +93,6 @@ public class MainService extends LifecycleService {
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .build();
 
-
                 imageAnalysis.setAnalyzer(executor, (image) -> {
                     if(isBusy) return;
                     isBusy = true;
