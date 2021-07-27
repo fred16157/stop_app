@@ -97,7 +97,6 @@ public class MainActivity extends AppCompatActivity {
             mainService.imageUpdateCallback = (image) -> {
                 runOnUiThread(() -> {
                     ((ImageView)findViewById(R.id.imageView)).setImageBitmap(image);
-
                 });
             };
             mainService.predictionUpdateCallback = (image) -> {
