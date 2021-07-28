@@ -16,6 +16,7 @@ import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.SystemClock;
+import android.service.notification.StatusBarNotification;
 import android.util.Size;
 
 import androidx.annotation.Nullable;
@@ -30,7 +31,13 @@ import androidx.preference.PreferenceManager;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
+import org.opencv.android.BaseLoaderCallback;
+import org.opencv.android.LoaderCallbackInterface;
+import org.opencv.android.OpenCVLoader;
+
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
@@ -40,6 +47,7 @@ public class MainService extends LifecycleService {
     final String CROSSWALK_CHANNEL_ID = "ALERT_CROSSWALK";
     final String TRAFFIC_LIGHT_CHANNEL_ID = "ALERT_TRAFFIC_LIGHT";
     final String COLLISION_CHANNEL_ID = "ALERT_COLLISION";
+    final String COVERED_CHANNEL_ID = "ALERT_COVERED";
     private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
     public Consumer<Bitmap> imageUpdateCallback;
     public Consumer<Bitmap> predictionUpdateCallback;
@@ -48,6 +56,7 @@ public class MainService extends LifecycleService {
     public boolean doTrafficLightAlert;
     public boolean doCollisionAlert;
     public int alertThreshold;
+    public int sharpnessThreshold;
     private ImageAnalysis imageAnalysis;
     private Camera camera;
     private YuvToRgbConverter converter;
@@ -59,7 +68,20 @@ public class MainService extends LifecycleService {
     public void onCreate() {
         super.onCreate();
         converter = new YuvToRgbConverter(this);
-        start();
+        BaseLoaderCallback loaderCallback = new BaseLoaderCallback(this) {
+            @Override
+            public void onManagerConnected(int status) {
+                if(status == LoaderCallbackInterface.SUCCESS) {
+                    start();
+                }
+                super.onManagerConnected(status);
+            }
+        };
+        if(!OpenCVLoader.initDebug()) {
+            OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_3_4_0, this, loaderCallback);
+        } else {
+            loaderCallback.onManagerConnected(LoaderCallbackInterface.SUCCESS);
+        }
         IntentFilter screenStateFilter = new IntentFilter();
         screenStateFilter.addAction(Intent.ACTION_SCREEN_ON);
         screenStateFilter.addAction(Intent.ACTION_SCREEN_OFF);
@@ -69,6 +91,7 @@ public class MainService extends LifecycleService {
         doTrafficLightAlert = preferences.getBoolean("do_traffic_light_alert", false);
         doCollisionAlert = preferences.getBoolean("do_collision_alert", false);
         alertThreshold = preferences.getInt("alert_threshold", 10);
+        sharpnessThreshold = preferences.getInt("sharpness_threshold", 30);
         preferences.registerOnSharedPreferenceChangeListener(preferenceChangeListener);
 
         for(short i = 0; i < 6; i++) {
@@ -110,6 +133,25 @@ public class MainService extends LifecycleService {
                     Matrix matrix = new Matrix();
                     matrix.postRotate(90);
                     Bitmap rotated = Bitmap.createBitmap(bitmap, 0, 0, 416, 416, matrix, false);
+                    NotificationManager manager = getSystemService(NotificationManager.class);
+                    if(CameraCoveredAlertHelper.getSharpnessFromBitmap(rotated) < sharpnessThreshold) {
+                        if(Arrays.stream(manager.getActiveNotifications()).noneMatch((notification) -> notification.getId() == 3)) {
+
+                            Notification.Builder notification = null;
+                            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                notification = new Notification.Builder(MainService.this, COVERED_CHANNEL_ID);
+                            } else {
+                                notification = new Notification.Builder(MainService.this);
+                            }
+                            notification.setSmallIcon(R.mipmap.ic_launcher)
+                                    .setPriority(Notification.PRIORITY_MAX)
+                                    .setContentTitle("카메라가 가려짐")
+                                    .setContentText("카메라의 렌즈가 가려진 것 같습니다. 탐지 관련 기능이 작동하지 않을 수 있습니다.");
+                            manager.notify(3, notification.build());
+                        }
+                    } else {
+                        manager.cancel(3);
+                    }
                     ArrayList<YoloPredictionHelper.Recognition> predictions = helper.predict(rotated);
                     if(imageUpdateCallback != null) imageUpdateCallback.accept(rotated);
                     if(predictionUpdateCallback != null) predictionUpdateCallback.accept(helper.getResultOverlay(predictions));
@@ -157,7 +199,7 @@ public class MainService extends LifecycleService {
                                         .setContentText("전방에 충돌할 위험이 있는 사물이 있습니다.");
                                 break;
                         }
-                        getSystemService(NotificationManager.class).notify(2, notification.build());
+                        manager.notify(2, notification.build());
                     }
                     image.close();
                     for(short i = 0; i < 6; i++){
@@ -183,13 +225,11 @@ public class MainService extends LifecycleService {
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationManager manager = ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE));
             NotificationChannel runningChannel = new NotificationChannel(RUNNING_CHANNEL_ID, "Running Alert", NotificationManager.IMPORTANCE_HIGH);
-            manager.createNotificationChannel(runningChannel);
             NotificationChannel crosswalkChannel = new NotificationChannel(CROSSWALK_CHANNEL_ID, "Crosswalk Alert", NotificationManager.IMPORTANCE_HIGH);
-            manager.createNotificationChannel(crosswalkChannel);
             NotificationChannel trafficLightChannel = new NotificationChannel(TRAFFIC_LIGHT_CHANNEL_ID, "Traffic Light Alert", NotificationManager.IMPORTANCE_HIGH);
-            manager.createNotificationChannel(trafficLightChannel);
             NotificationChannel collisionChannel = new NotificationChannel(COLLISION_CHANNEL_ID, "Collision Alert", NotificationManager.IMPORTANCE_HIGH);
-            manager.createNotificationChannel(collisionChannel);
+            NotificationChannel coveredChannel = new NotificationChannel(COVERED_CHANNEL_ID, "Lens Covered Alert", NotificationManager.IMPORTANCE_HIGH);
+            manager.createNotificationChannels(Arrays.asList(runningChannel, crosswalkChannel, trafficLightChannel,collisionChannel,coveredChannel));
             notification = new Notification.Builder(this, RUNNING_CHANNEL_ID);
         }
         else {
@@ -238,6 +278,9 @@ public class MainService extends LifecycleService {
                 break;
             case "alert_threshold":
                 alertThreshold = sharedPreferences.getInt(key, 10);
+                break;
+            case "sharpness_threshold":
+                sharpnessThreshold = sharedPreferences.getInt(key, 30);
                 break;
         }
     };
