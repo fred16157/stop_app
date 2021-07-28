@@ -24,4 +24,12 @@
         android:inputType="numberSigned"
         android:summary="위의 알림들의 조건이 채워졌을 때 이 설정값 만큼의 프레임 수 안에 같은 알림을 보낸 적이 있다면 울리지 않습니다."
         android:title="다시 알림 프레임 수" />
+    <com.example.stop_app.IntEditTextPreference
+        android:defaultValue="30"
+        android:key="sharpness_threshold"
+        android:selectAllOnFocus="true"
+        android:singleLine="true"
+        android:inputType="numberSigned"
+        android:summary="주어진 값을 기준으로 카메라가 가려졌는지 판단합니다. 낮을수록 더 자주 경고가 뜨고, 높을수록 더 적게 경고가 뜹니다."
+        android:title="카메라 가림 판단 기준" />
 </PreferenceScreen>

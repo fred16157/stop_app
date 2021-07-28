@@ -1,2 +1,3 @@
 rootProject.name='stop_app'
 include ':app'
+include ':sdk'
