@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <SwitchPreference
         android:defaultValue="false"
@@ -18,6 +19,7 @@
         android:title="충돌 경고 알림" />
     <com.example.stop_app.IntEditTextPreference
         android:defaultValue="10"
+        app:defaultValue="10"
         android:key="alert_threshold"
         android:selectAllOnFocus="true"
         android:singleLine="true"
@@ -26,6 +28,7 @@
         android:title="다시 알림 프레임 수" />
     <com.example.stop_app.IntEditTextPreference
         android:defaultValue="30"
+        app:defaultValue="30"
         android:key="sharpness_threshold"
         android:selectAllOnFocus="true"
         android:singleLine="true"

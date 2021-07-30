@@ -134,27 +134,32 @@ public class MainService extends LifecycleService {
                     matrix.postRotate(90);
                     Bitmap rotated = Bitmap.createBitmap(bitmap, 0, 0, 416, 416, matrix, false);
                     NotificationManager manager = getSystemService(NotificationManager.class);
-                    if(CameraCoveredAlertHelper.getSharpnessFromBitmap(rotated) < sharpnessThreshold) {
-                        if(Arrays.stream(manager.getActiveNotifications()).noneMatch((notification) -> notification.getId() == 3)) {
+                    ArrayList<YoloPredictionHelper.Recognition> predictions = new ArrayList<>();
+                    try {
+                        if(CameraCoveredAlertHelper.getSharpnessFromBitmap(rotated) < sharpnessThreshold) {
+                            if(Arrays.stream(manager.getActiveNotifications()).noneMatch((notification) -> notification.getId() == 3)) {
 
-                            Notification.Builder notification = null;
-                            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                notification = new Notification.Builder(MainService.this, COVERED_CHANNEL_ID);
-                            } else {
-                                notification = new Notification.Builder(MainService.this);
+                                Notification.Builder notification = null;
+                                if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                    notification = new Notification.Builder(MainService.this, COVERED_CHANNEL_ID);
+                                } else {
+                                    notification = new Notification.Builder(MainService.this);
+                                }
+                                notification.setSmallIcon(R.mipmap.ic_launcher)
+                                        .setPriority(Notification.PRIORITY_MAX)
+                                        .setContentTitle("카메라가 가려짐")
+                                        .setContentText("카메라의 렌즈가 가려진 것 같습니다. 탐지 관련 기능이 작동하지 않을 수 있습니다.");
+                                manager.notify(3, notification.build());
                             }
-                            notification.setSmallIcon(R.mipmap.ic_launcher)
-                                    .setPriority(Notification.PRIORITY_MAX)
-                                    .setContentTitle("카메라가 가려짐")
-                                    .setContentText("카메라의 렌즈가 가려진 것 같습니다. 탐지 관련 기능이 작동하지 않을 수 있습니다.");
-                            manager.notify(3, notification.build());
+                        } else {
+                            manager.cancel(3);
                         }
-                    } else {
-                        manager.cancel(3);
+                        predictions = helper.predict(rotated);
+                        if(imageUpdateCallback != null) imageUpdateCallback.accept(rotated);
+                        if(predictionUpdateCallback != null) predictionUpdateCallback.accept(helper.getResultOverlay(predictions));
+                    } catch(Exception e) {
+                        e.printStackTrace();
                     }
-                    ArrayList<YoloPredictionHelper.Recognition> predictions = helper.predict(rotated);
-                    if(imageUpdateCallback != null) imageUpdateCallback.accept(rotated);
-                    if(predictionUpdateCallback != null) predictionUpdateCallback.accept(helper.getResultOverlay(predictions));
                     boolean[] curPredictions = new boolean[6];
                     for(YoloPredictionHelper.Recognition prediction : predictions) {
                         curPredictions[prediction.getDetectedClass()] = true;
@@ -199,6 +204,7 @@ public class MainService extends LifecycleService {
                                         .setContentText("전방에 충돌할 위험이 있는 사물이 있습니다.");
                                 break;
                         }
+                        System.out.println(alertThreshold);
                         manager.notify(2, notification.build());
                     }
                     image.close();
@@ -247,6 +253,7 @@ public class MainService extends LifecycleService {
     @Override
     public void onDestroy() {
         super.onDestroy();
+
         helper.close();
         unregisterReceiver(screenStateBroadcastReceiver);
         stopSelf(1223);
