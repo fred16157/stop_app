@@ -67,6 +67,10 @@ public class MainService extends LifecycleService {
     @Override
     public void onCreate() {
         super.onCreate();
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+        if(preferences.getBoolean("isFirstLaunch", true)) {
+            stopSelf(1223);
+        }
         converter = new YuvToRgbConverter(this);
         BaseLoaderCallback loaderCallback = new BaseLoaderCallback(this) {
             @Override
@@ -86,14 +90,12 @@ public class MainService extends LifecycleService {
         screenStateFilter.addAction(Intent.ACTION_SCREEN_ON);
         screenStateFilter.addAction(Intent.ACTION_SCREEN_OFF);
         registerReceiver(screenStateBroadcastReceiver, screenStateFilter);
-        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
         doCrosswalkAlert = preferences.getBoolean("do_crosswalk_alert", false);
         doTrafficLightAlert = preferences.getBoolean("do_traffic_light_alert", false);
         doCollisionAlert = preferences.getBoolean("do_collision_alert", false);
         alertThreshold = preferences.getInt("alert_threshold", 10);
         sharpnessThreshold = preferences.getInt("sharpness_threshold", 30);
         preferences.registerOnSharedPreferenceChangeListener(preferenceChangeListener);
-
         for(short i = 0; i < 6; i++) {
             prevPredictions[i] = (short)(alertThreshold + 1);
         }
@@ -253,8 +255,7 @@ public class MainService extends LifecycleService {
     @Override
     public void onDestroy() {
         super.onDestroy();
-
-        helper.close();
+        if(helper != null) helper.close();
         unregisterReceiver(screenStateBroadcastReceiver);
         stopSelf(1223);
     }
