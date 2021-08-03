@@ -147,7 +147,7 @@ public class MainService extends LifecycleService {
                                 } else {
                                     notification = new Notification.Builder(MainService.this);
                                 }
-                                notification.setSmallIcon(R.mipmap.ic_launcher)
+                                notification.setSmallIcon(R.drawable.ic_small_icon)
                                         .setPriority(Notification.PRIORITY_MAX)
                                         .setContentTitle("카메라가 가려짐")
                                         .setContentText("카메라의 렌즈가 가려진 것 같습니다. 탐지 관련 기능이 작동하지 않을 수 있습니다.");
@@ -187,7 +187,7 @@ public class MainService extends LifecycleService {
                             notification = new Notification.Builder(MainService.this);
                         }
                         assert notification != null;
-                        notification.setSmallIcon(R.mipmap.ic_launcher).setPriority(Notification.PRIORITY_MAX);
+                        notification.setSmallIcon(R.drawable.ic_small_icon).setPriority(Notification.PRIORITY_MAX);
                         switch (prediction.getDetectedClass()) {
                             case 0:
                                 notification.setContentTitle("횡단보도 경고")
@@ -244,7 +244,7 @@ public class MainService extends LifecycleService {
             notification = new Notification.Builder(this);
         }
 
-        notification.setSmallIcon(R.mipmap.ic_launcher)
+        notification.setSmallIcon(R.drawable.ic_small_icon)
                 .setContentIntent(pendingIntent)
                 .setContentTitle("멈춰!가 실행중입니다.")
                 .setContentText("중지하려면 터치하세요.")
