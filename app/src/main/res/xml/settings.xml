@@ -26,6 +26,11 @@
         android:inputType="numberSigned"
         android:summary="위의 알림들의 조건이 채워졌을 때 이 설정값 만큼의 프레임 수 안에 같은 알림을 보낸 적이 있다면 울리지 않습니다."
         android:title="다시 알림 프레임 수" />
+    <SwitchPreference
+        android:defaultValue="false"
+        android:key="do_camera_covered_alert"
+        android:summary="카메라가 손가락 등 어떤 물체에 가려져서 탐지가 어렵다고 판단될 경우 알림을 보냅니다."
+        android:title="카메라 가림 알림" />
     <com.example.stop_app.IntEditTextPreference
         android:defaultValue="30"
         app:defaultValue="30"
