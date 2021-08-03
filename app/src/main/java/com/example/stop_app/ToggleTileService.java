@@ -1,5 +1,6 @@
 package com.example.stop_app;
 
+import android.app.ActivityManager;
 import android.content.Intent;
 import android.os.Build;
 import android.service.quicksettings.Tile;
@@ -11,9 +12,7 @@ import androidx.annotation.RequiresApi;
 public class ToggleTileService extends TileService {
     @Override
     public void onTileAdded() {
-        Tile qsTile = getQsTile();
-        qsTile.setState(Tile.STATE_INACTIVE);
-        qsTile.updateTile();
+        init(getQsTile());
         super.onTileAdded();
     }
 
@@ -24,6 +23,7 @@ public class ToggleTileService extends TileService {
 
     @Override
     public void onStartListening() {
+        init(getQsTile());
         super.onStartListening();
     }
 
@@ -48,4 +48,21 @@ public class ToggleTileService extends TileService {
         qsTile.updateTile();
         super.onClick();
     }
+
+    public void init(Tile qsTile) {
+        ActivityManager manager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+        boolean isRunning = false;
+        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)){
+            if("com.example.stop_app.MainService".equals(service.service.getClassName())) {
+                isRunning = true;
+            }
+        }
+        if (isRunning) {
+            qsTile.setState(Tile.STATE_ACTIVE);
+        } else {
+            qsTile.setState(Tile.STATE_INACTIVE);
+        }
+        qsTile.updateTile();
+    }
+
 }
