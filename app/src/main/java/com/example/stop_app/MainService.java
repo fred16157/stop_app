@@ -58,6 +58,7 @@ public class MainService extends LifecycleService {
     public boolean doCameraCoveredAlert;
     public int alertThreshold;
     public int sharpnessThreshold;
+    public float confidenceThreshold;
     private ImageAnalysis imageAnalysis;
     private Camera camera;
     private YuvToRgbConverter converter;
@@ -94,6 +95,7 @@ public class MainService extends LifecycleService {
         doCrosswalkAlert = preferences.getBoolean("do_crosswalk_alert", false);
         doTrafficLightAlert = preferences.getBoolean("do_traffic_light_alert", false);
         doCollisionAlert = preferences.getBoolean("do_collision_alert", false);
+        confidenceThreshold = preferences.getInt("confidence_threshold", 50) / 100.0f;
         alertThreshold = preferences.getInt("alert_threshold", 10);
         doCameraCoveredAlert = preferences.getBoolean("do_camera_covered_alert", false);
         sharpnessThreshold = preferences.getInt("sharpness_threshold", 30);
@@ -107,7 +109,7 @@ public class MainService extends LifecycleService {
     @UseExperimental(markerClass = androidx.camera.core.ExperimentalGetImage.class)
     public int onStartCommand(Intent intent, int flags, int startId) {
         cameraProviderFuture = ProcessCameraProvider.getInstance(this);
-        helper = new YoloPredictionHelper(this);
+        helper = new YoloPredictionHelper(this, confidenceThreshold);
         cameraProviderFuture.addListener(() -> {
             try {
                 ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
@@ -288,6 +290,9 @@ public class MainService extends LifecycleService {
                 break;
             case "do_collision_alert":
                 doCollisionAlert = sharedPreferences.getBoolean(key, false);
+                break;
+            case "confidence_threshold":
+                helper.confidenceThreshold = sharedPreferences.getInt(key, 50) / 100.0f;
                 break;
             case "alert_threshold":
                 alertThreshold = sharedPreferences.getInt(key, 10);

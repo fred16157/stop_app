@@ -35,6 +35,7 @@ public class YoloPredictionHelper {
     private static final int[] OUTPUT_WIDTH_TINY = new int[]{2535, 2535};
     private Vector<String> labels = new Vector<>();
     protected float mNmsThresh = 0.6f;
+    public float confidenceThreshold;
 
     protected float overlap(float x1, float w1, float x2, float w2) {
         float l1 = x1 - w1 / 2;
@@ -66,8 +67,9 @@ public class YoloPredictionHelper {
         return u;
     }
 
-    public YoloPredictionHelper(Context context) {
+    public YoloPredictionHelper(Context context, float confidenceThreshold) {
         try {
+            this.confidenceThreshold = confidenceThreshold;
             Model.Options options;
             CompatibilityList compatList = new CompatibilityList();
             options = new Model.Options.Builder().setNumThreads(4).build();
@@ -123,7 +125,7 @@ public class YoloPredictionHelper {
                 }
             }
             final float score = maxClass;
-            if (score > 0.5f){  // 정확도 50% 이상인 결과만 추가
+            if (score > confidenceThreshold){  // 정확도 50% 이상인 결과만 추가
                 final float xPos = bboxes[i][0];
                 final float yPos = bboxes[i][1];
                 final float w = bboxes[i][2];

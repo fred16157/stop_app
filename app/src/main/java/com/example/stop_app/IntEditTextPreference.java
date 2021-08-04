@@ -21,7 +21,7 @@ public class IntEditTextPreference extends EditTextPreference {
 
     @Override
     protected String getPersistedString(String defaultReturnValue) {
-        return String.valueOf(getPersistedInt(10));
+        return String.valueOf(getPersistedInt(15));
     }
 
     @Override

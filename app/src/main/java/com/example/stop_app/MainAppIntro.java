@@ -21,7 +21,7 @@ public class MainAppIntro extends AppIntro {
         super.onCreate(savedInstanceState);
 
         addSlide(AppIntroFragment.newInstance("사용 전 주의사항",
-                "멈춰! 앱은 카메라와 인공지능, 알림을 활용해 보행자의 안전을 보조하는 역할을 해줍니다.\n그러나 카메라의 오작동이나 인공지능 모델의 잘못된 판단으로 앱이 제 역할을 하지 못할 수 있습니다.\n\n이로 인해 발생하는 안전사고에 대하여 멈춰!의 개발팀에서는 아무런 책임을 지지 않습니다.",
+                "멈춰! 앱은 카메라와 인공지능, 알림을 활용해 보행자의 안전을 보조하는 역할을 해줍니다.\n그러나 카메라의 오작동이나 인공지능 모델의 잘못된 판단으로 앱이 제 역할을 하지 못할 수 있습니다.\n\n앱에 지나치게 의존하기 보다는 주변 상황에 주의하시는 것을 권장드립니다.",
                 R.drawable.outline_warning_24, Color.parseColor("#c50e29")));
         addSlide(AppIntroFragment.newInstance("카메라 권한 요청",
                 "멈춰! 앱은 사용자의 실시간 전방 시야를 분석하기 위해 카메라를 사용합니다. 이 이미지 데이터는 인터넷으로 전송되지 않으며, 분석된 데이터는 즉시 폐기됩니다.",
