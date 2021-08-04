@@ -55,8 +55,10 @@ public class MainService extends LifecycleService {
     public boolean doCrosswalkAlert;
     public boolean doTrafficLightAlert;
     public boolean doCollisionAlert;
+    public boolean doCameraCoveredAlert;
     public int alertThreshold;
     public int sharpnessThreshold;
+    public float confidenceThreshold;
     private ImageAnalysis imageAnalysis;
     private Camera camera;
     private YuvToRgbConverter converter;
@@ -67,6 +69,10 @@ public class MainService extends LifecycleService {
     @Override
     public void onCreate() {
         super.onCreate();
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+        if(preferences.getBoolean("isFirstLaunch", true)) {
+            stopSelf(1223);
+        }
         converter = new YuvToRgbConverter(this);
         BaseLoaderCallback loaderCallback = new BaseLoaderCallback(this) {
             @Override
@@ -86,14 +92,14 @@ public class MainService extends LifecycleService {
         screenStateFilter.addAction(Intent.ACTION_SCREEN_ON);
         screenStateFilter.addAction(Intent.ACTION_SCREEN_OFF);
         registerReceiver(screenStateBroadcastReceiver, screenStateFilter);
-        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
         doCrosswalkAlert = preferences.getBoolean("do_crosswalk_alert", false);
         doTrafficLightAlert = preferences.getBoolean("do_traffic_light_alert", false);
         doCollisionAlert = preferences.getBoolean("do_collision_alert", false);
+        confidenceThreshold = preferences.getInt("confidence_threshold", 50) / 100.0f;
         alertThreshold = preferences.getInt("alert_threshold", 10);
+        doCameraCoveredAlert = preferences.getBoolean("do_camera_covered_alert", false);
         sharpnessThreshold = preferences.getInt("sharpness_threshold", 30);
         preferences.registerOnSharedPreferenceChangeListener(preferenceChangeListener);
-
         for(short i = 0; i < 6; i++) {
             prevPredictions[i] = (short)(alertThreshold + 1);
         }
@@ -103,7 +109,7 @@ public class MainService extends LifecycleService {
     @UseExperimental(markerClass = androidx.camera.core.ExperimentalGetImage.class)
     public int onStartCommand(Intent intent, int flags, int startId) {
         cameraProviderFuture = ProcessCameraProvider.getInstance(this);
-        helper = new YoloPredictionHelper(this);
+        helper = new YoloPredictionHelper(this, confidenceThreshold);
         cameraProviderFuture.addListener(() -> {
             try {
                 ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
@@ -134,27 +140,35 @@ public class MainService extends LifecycleService {
                     matrix.postRotate(90);
                     Bitmap rotated = Bitmap.createBitmap(bitmap, 0, 0, 416, 416, matrix, false);
                     NotificationManager manager = getSystemService(NotificationManager.class);
-                    if(CameraCoveredAlertHelper.getSharpnessFromBitmap(rotated) < sharpnessThreshold) {
-                        if(Arrays.stream(manager.getActiveNotifications()).noneMatch((notification) -> notification.getId() == 3)) {
+                    ArrayList<YoloPredictionHelper.Recognition> predictions = new ArrayList<>();
+                    try {
+                        if(doCameraCoveredAlert) {
+                            if(CameraCoveredAlertHelper.getSharpnessFromBitmap(bitmap) < sharpnessThreshold) {
+                                if(Arrays.stream(manager.getActiveNotifications()).noneMatch((notification) -> notification.getId() == 3)) {
 
-                            Notification.Builder notification = null;
-                            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                notification = new Notification.Builder(MainService.this, COVERED_CHANNEL_ID);
+                                    Notification.Builder notification = null;
+                                    if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                        notification = new Notification.Builder(MainService.this, COVERED_CHANNEL_ID);
+                                    } else {
+                                        notification = new Notification.Builder(MainService.this);
+                                    }
+                                    notification.setSmallIcon(R.drawable.ic_small_icon)
+                                            .setPriority(Notification.PRIORITY_MAX)
+                                            .setContentTitle("카메라가 가려짐")
+                                            .setContentText("카메라의 렌즈가 가려진 것 같습니다. 탐지 관련 기능이 작동하지 않을 수 있습니다.");
+                                    manager.notify(3, notification.build());
+                                }
                             } else {
-                                notification = new Notification.Builder(MainService.this);
+                                manager.cancel(3);
                             }
-                            notification.setSmallIcon(R.mipmap.ic_launcher)
-                                    .setPriority(Notification.PRIORITY_MAX)
-                                    .setContentTitle("카메라가 가려짐")
-                                    .setContentText("카메라의 렌즈가 가려진 것 같습니다. 탐지 관련 기능이 작동하지 않을 수 있습니다.");
-                            manager.notify(3, notification.build());
                         }
-                    } else {
-                        manager.cancel(3);
+
+                        predictions = helper.predict(rotated);
+                        if(imageUpdateCallback != null) imageUpdateCallback.accept(rotated);
+                        if(predictionUpdateCallback != null) predictionUpdateCallback.accept(helper.getResultOverlay(predictions));
+                    } catch(Exception e) {
+                        e.printStackTrace();
                     }
-                    ArrayList<YoloPredictionHelper.Recognition> predictions = helper.predict(rotated);
-                    if(imageUpdateCallback != null) imageUpdateCallback.accept(rotated);
-                    if(predictionUpdateCallback != null) predictionUpdateCallback.accept(helper.getResultOverlay(predictions));
                     boolean[] curPredictions = new boolean[6];
                     for(YoloPredictionHelper.Recognition prediction : predictions) {
                         curPredictions[prediction.getDetectedClass()] = true;
@@ -180,7 +194,7 @@ public class MainService extends LifecycleService {
                             notification = new Notification.Builder(MainService.this);
                         }
                         assert notification != null;
-                        notification.setSmallIcon(R.mipmap.ic_launcher).setPriority(Notification.PRIORITY_MAX);
+                        notification.setSmallIcon(R.drawable.ic_small_icon).setPriority(Notification.PRIORITY_MAX);
                         switch (prediction.getDetectedClass()) {
                             case 0:
                                 notification.setContentTitle("횡단보도 경고")
@@ -199,6 +213,7 @@ public class MainService extends LifecycleService {
                                         .setContentText("전방에 충돌할 위험이 있는 사물이 있습니다.");
                                 break;
                         }
+                        System.out.println(alertThreshold);
                         manager.notify(2, notification.build());
                     }
                     image.close();
@@ -236,7 +251,7 @@ public class MainService extends LifecycleService {
             notification = new Notification.Builder(this);
         }
 
-        notification.setSmallIcon(R.mipmap.ic_launcher)
+        notification.setSmallIcon(R.drawable.ic_small_icon)
                 .setContentIntent(pendingIntent)
                 .setContentTitle("멈춰!가 실행중입니다.")
                 .setContentText("중지하려면 터치하세요.")
@@ -247,7 +262,7 @@ public class MainService extends LifecycleService {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        helper.close();
+        if(helper != null) helper.close();
         unregisterReceiver(screenStateBroadcastReceiver);
         stopSelf(1223);
     }
@@ -276,8 +291,14 @@ public class MainService extends LifecycleService {
             case "do_collision_alert":
                 doCollisionAlert = sharedPreferences.getBoolean(key, false);
                 break;
+            case "confidence_threshold":
+                helper.confidenceThreshold = sharedPreferences.getInt(key, 50) / 100.0f;
+                break;
             case "alert_threshold":
                 alertThreshold = sharedPreferences.getInt(key, 10);
+                break;
+            case "do_camera_covered_alert":
+                doCameraCoveredAlert = sharedPreferences.getBoolean(key, false);
                 break;
             case "sharpness_threshold":
                 sharpnessThreshold = sharedPreferences.getInt(key, 30);
