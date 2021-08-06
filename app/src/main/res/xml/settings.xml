@@ -23,7 +23,7 @@
         android:key="confidence_threshold"
         android:selectAllOnFocus="true"
         android:singleLine="true"
-        android:inputType="numberSigned"
+        android:inputType="number"
         android:summary="예측 결과의 정확도에 따라 표시 기준을 정합니다. 0에서 100까지의 값이 유효합니다. 100으로 올라갈수록 정확하지만 예측이 되지 않는 경우가 생길 수 있고, 0으로 내려갈수록 부정확해집니다. 대부분 상황에서 50을 권장합니다."
         android:title="예측 결과 표시 기준값" />
     <com.example.stop_app.IntEditTextPreference
@@ -32,8 +32,8 @@
         android:key="alert_threshold"
         android:selectAllOnFocus="true"
         android:singleLine="true"
-        android:inputType="numberSigned"
-        android:summary="위의 알림들의 조건이 채워졌을 때 이 설정값 만큼의 프레임 수 안에 같은 알림을 보낸 적이 있다면 울리지 않습니다."
+        android:inputType="number"
+        android:summary="위의 알림들의 조건이 채워졌을 때 이 설정값 만큼의 프레임 수 안에 같은 알림을 보낸 적이 있다면 울리지 않습니다. 예를 들어 이 값이 10일 경우 한번 알림이 울리면 다음 10프레임 동안 같은 알림이 울리지 않습니다. 한 프레임이 처리되는 데 걸리는 시간은 메인 화면의 오른쪽 위에 표시하고 있습니다."
         android:title="다시 알림 프레임 수" />
     <SwitchPreference
         android:defaultValue="false"
@@ -46,7 +46,7 @@
         android:key="sharpness_threshold"
         android:selectAllOnFocus="true"
         android:singleLine="true"
-        android:inputType="numberSigned"
-        android:summary="주어진 값을 기준으로 카메라가 가려졌는지 판단합니다. 낮을수록 더 자주 경고가 뜨고, 높을수록 더 적게 경고가 뜹니다."
+        android:inputType="number"
+        android:summary="주어진 값을 기준으로 카메라가 가려졌는지 판단합니다. 낮을수록 더 적게 경고가 뜨고, 높을수록 더 자주 경고가 뜹니다."
         android:title="카메라 가림 판단 기준" />
 </PreferenceScreen>
