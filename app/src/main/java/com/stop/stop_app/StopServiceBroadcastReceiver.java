@@ -1,4 +1,4 @@
-package com.example.stop_app;
+package com.stop.stop_app;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;

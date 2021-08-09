@@ -1,4 +1,4 @@
-package com.example.stop_app;
+package com.stop.stop_app;
 
 import android.content.Context;
 import android.util.AttributeSet;
@@ -21,7 +21,12 @@ public class IntEditTextPreference extends EditTextPreference {
 
     @Override
     protected String getPersistedString(String defaultReturnValue) {
-        return String.valueOf(getPersistedInt(15));
+        try {
+            return String.valueOf(getPersistedInt(Integer.parseInt(defaultReturnValue)));
+        } catch (NumberFormatException e) {
+            return String.valueOf(getPersistedInt(0));
+        }
+
     }
 
     @Override
