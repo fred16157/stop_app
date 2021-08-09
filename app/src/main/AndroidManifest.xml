@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.stop_app">
+    package="com.stop.stop_app">
 
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
@@ -19,26 +19,26 @@
             android:name="com.google.mlkit.vision.DEPENDENCIES"
             android:value="ocr" />
 
-        <activity android:name=".SettingsActivity" />
-        <activity android:name=".MainActivity">
+        <activity android:name="com.stop.stop_app.SettingsActivity" />
+        <activity android:name="com.stop.stop_app.MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".MainAppIntro" />
+        <activity android:name="com.stop.stop_app.MainAppIntro" />
 
         <service
-            android:name=".MainService"
+            android:name="com.stop.stop_app.MainService"
             android:enabled="true"
             android:foregroundServiceType="camera" />
 
         <receiver
-            android:name=".StopServiceBroadcastReceiver"
+            android:name="com.stop.stop_app.StopServiceBroadcastReceiver"
             android:enabled="true" />
         <service
-            android:name=".ToggleTileService"
+            android:name="com.stop.stop_app.ToggleTileService"
             android:label="멈춰!"
             android:icon="@drawable/ic_small_icon"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">

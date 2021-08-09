@@ -1,4 +1,4 @@
-package com.example.stop_app;
+package com.stop.stop_app;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -7,7 +7,7 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RectF;
 
-import com.example.stop_app.ml.Yolov4Tiny416;
+import com.stop.stop_app.ml.Yolov4Tiny416;
 
 import org.tensorflow.lite.DataType;
 import org.tensorflow.lite.gpu.CompatibilityList;

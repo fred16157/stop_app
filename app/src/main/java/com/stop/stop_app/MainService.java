@@ -1,4 +1,4 @@
-package com.example.stop_app;
+package com.stop.stop_app;
 
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -16,7 +16,6 @@ import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.SystemClock;
-import android.service.notification.StatusBarNotification;
 import android.util.Size;
 
 import androidx.annotation.Nullable;
@@ -37,7 +36,6 @@ import org.opencv.android.OpenCVLoader;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;

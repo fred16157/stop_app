@@ -1,11 +1,10 @@
-package com.example.stop_app;
+package com.stop.stop_app;
 
 import android.Manifest;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Bundle;
-import android.os.PersistableBundle;
 
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -13,7 +12,6 @@ import androidx.preference.PreferenceManager;
 
 import com.github.appintro.AppIntro;
 import com.github.appintro.AppIntroFragment;
-import com.github.appintro.AppIntroPageTransformerType;
 
 public class MainAppIntro extends AppIntro {
     @Override

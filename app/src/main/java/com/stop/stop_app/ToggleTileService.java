@@ -1,4 +1,4 @@
-package com.example.stop_app;
+package com.stop.stop_app;
 
 import android.app.ActivityManager;
 import android.content.Intent;

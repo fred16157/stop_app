@@ -9,7 +9,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.example.stop_app"
+        applicationId "com.stop.stop_app"
         minSdkVersion 24
         targetSdkVersion 30
         versionCode 1
