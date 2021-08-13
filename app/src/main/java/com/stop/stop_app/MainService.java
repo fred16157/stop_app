@@ -136,7 +136,8 @@ public class MainService extends LifecycleService {
                     converter.yuvToRgb(img, bitmap);
                     Matrix matrix = new Matrix();
                     matrix.postRotate(90);
-                    Bitmap rotated = Bitmap.createBitmap(bitmap, 0, 0, 416, 416, matrix, false);
+                    Bitmap resized = Bitmap.createScaledBitmap(bitmap, 416, 416, false);
+                    Bitmap rotated = Bitmap.createBitmap(resized, 0, 0, 416, 416, matrix, false);
                     NotificationManager manager = getSystemService(NotificationManager.class);
                     ArrayList<YoloPredictionHelper.Recognition> predictions = new ArrayList<>();
                     try {
