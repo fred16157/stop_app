@@ -29,8 +29,7 @@ import java.util.Vector;
 
 public class YoloPredictionHelper {
     private Yolov4Tiny416 model;
-    public ImageProcessor imageProcessor = new ImageProcessor.Builder()
-            .add(new ResizeOp(416, 416, ResizeOp.ResizeMethod.BILINEAR)).add(new NormalizeOp(0, 255)).build();
+    public ImageProcessor imageProcessor = new ImageProcessor.Builder().add(new NormalizeOp(0, 255)).build();
 
     private static final int[] OUTPUT_WIDTH_TINY = new int[]{2535, 2535};
     private Vector<String> labels = new Vector<>();
