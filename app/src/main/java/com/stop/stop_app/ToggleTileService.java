@@ -53,7 +53,7 @@ public class ToggleTileService extends TileService {
         ActivityManager manager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
         boolean isRunning = false;
         for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)){
-            if("com.example.stop_app.MainService".equals(service.service.getClassName())) {
+            if("com.stop.stop_app.MainService".equals(service.service.getClassName())) {
                 isRunning = true;
             }
         }
